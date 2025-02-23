@@ -4,6 +4,7 @@
 #include "canmanager.h"
 #include "IOManagement.h"
 
+#define CAN_QUEUE_PERIOD     50
 class CANSteering : public CANManager {
     public:
         CANSteering(CAN_TypeDef* canPort, CAN_PINS pins, int frequency = DEFAULT_CAN_FREQ);
