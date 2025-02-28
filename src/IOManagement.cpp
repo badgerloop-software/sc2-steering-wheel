@@ -1,8 +1,9 @@
 #include "IOManagement.h"
-#include "adc.h"
 
 volatile Digital_Data digital_data = {0, 0, 0, 0, 0, 0, 0};
 volatile float regen_brake = 0.0f;
+
+STM32TimerInterrupt IOTimer(TIM7);
 
 void initIO() {
     // Initialize digital pins
@@ -15,7 +16,14 @@ void initIO() {
     pinMode(HORN_PIN, INPUT);
 
     // Initialize analog pins
-    initADC(ADC1);
+    initADC(ADC2);
+
+    // Initialize timer for reading inputs
+    if (IOTimer.attachInterruptInterval(IO_UPDATE_PERIOD, readIO)) {
+        printf("IO Timer started \n");
+    } else {
+        printf("Failed to start IO Timer \n");
+    }
 }
 
 void readIO() {
