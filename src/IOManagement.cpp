@@ -16,7 +16,7 @@ void initIO() {
     pinMode(HORN_PIN, INPUT);
 
     // Initialize analog pins
-    initADC(ADC2);
+    initADC(ADC1);
 
     // Initialize timer for reading inputs
     if (IOTimer.attachInterruptInterval(IO_UPDATE_PERIOD, readIO)) {

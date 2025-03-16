@@ -6,14 +6,14 @@
 #include "adc.h"
 
 //Macros for pins
-#define DIRECTION_SWITCH_PIN        PA9
-#define LEFT_BLINK_PIN              PB1
-#define RIGHT_BLINK_PIN             PF0
-#define CRZ_MODE_A_PIN              PF1
-#define CRZ_SET_PIN                 PA8
-#define CRZ_RESET_PIN               PB5
-#define HORN_PIN                    PA7
-#define REGEN_BRAKE_PIN             ADC_CHANNEL_1
+#define DIRECTION_SWITCH_PIN        PB1
+#define LEFT_BLINK_PIN              PA9
+#define RIGHT_BLINK_PIN             PA10
+#define CRZ_MODE_A_PIN              PB6
+#define CRZ_SET_PIN                 PB5
+#define CRZ_RESET_PIN               PB4
+#define HORN_PIN                    PA0
+#define REGEN_BRAKE_PIN             ADC_CHANNEL_6 // PA1
 
 #define IO_UPDATE_PERIOD 100000 // us
 
