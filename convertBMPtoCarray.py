@@ -51,7 +51,7 @@ def convert_bmp_to_rgb332(image_path, image_name):
         f.write(f"// RGB332 image data ({width}x{height})\n")
         f.write(f"#define IMAGE_WIDTH {width}\n")
         f.write(f"#define IMAGE_HEIGHT {height}\n")
-        f.write("extern const uint8_t BSRlogo[] = {\n")
+        f.write("extern const uint8_t "+image_name+"[] = {\n")
         
         # Write data in rows of 16 values
         for i in range(0, len(flat_rgb332), 16):

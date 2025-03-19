@@ -8,7 +8,9 @@ CANSteering canSteering(CAN1, DEF);
 
 void setup() {
     Serial.begin(115200);
+    Serial.println("Hello, World!!!!!!");
     drawImageFromBitmap();
+    Serial.println("Hello, World!");
     initIO();
 }
 
