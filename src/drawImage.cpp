@@ -18,7 +18,7 @@ bool drawImageFromBitmap() {
     }
 
     // Use the converted data
-    tft.pushImage(WIDTH/2, HEIGHT/2, 295, 177, rgb565_data);
+    tft.pushImage(WIDTH/2 - 295/2, HEIGHT/2 - 177/2, 295, 177, rgb565_data);
     free(rgb565_data);
     return true;
 }
