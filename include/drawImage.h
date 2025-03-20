@@ -5,15 +5,22 @@
 #include <TFT_eSPI.h> // Hardware-specific library
 
 #include "BSRlogo.h"
+#include "kar.h"
 
 extern const uint8_t BSRlogo[];
+
+typedef enum {
+    BSR_LOGO,
+    CAR_IMAGE
+}image_t;
 
 #define HEIGHT 480
 #define WIDTH 320
 
 //Functions for Image renderer
-uint16_t* convertToRGB565(const uint8_t* rrrgggbb_array, int size);
-bool drawImageFromBitmap();
+void initDisp();
+bool drawImageFromBitmap(image_t image_code);
+void rotateColors();
 
 
 #endif

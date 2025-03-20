@@ -3,7 +3,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import sys
 
-def convert_bmp_to_rgb332(image_path, image_name):
+def convert_bmp_to_rgb332(image_path, image_name, rotate_k):
     """Convert BMP to RGB332 format and verify the conversion."""
     # Load the image
     img = Image.open(image_path)
@@ -15,6 +15,7 @@ def convert_bmp_to_rgb332(image_path, image_name):
     
     # Get image as numpy array
     img_array = np.array(img)
+    img_array = np.rot90(img_array, k=rotate_k)
     height, width, _ = img_array.shape
     
     # Convert to RGB332 (1 byte per pixel)
@@ -49,9 +50,9 @@ def convert_bmp_to_rgb332(image_path, image_name):
     with open(filename, "w") as f:
         f.write("#include <Arduino.h>\n")   
         f.write(f"// RGB332 image data ({width}x{height})\n")
-        f.write(f"#define IMAGE_WIDTH {width}\n")
-        f.write(f"#define IMAGE_HEIGHT {height}\n")
-        f.write("extern const uint8_t "+image_name+"[] = {\n")
+        f.write(f"#define {image_name}_WIDTH {width}\n")
+        f.write(f"#define {image_name}_HEIGHT {height}\n")
+        f.write("const uint8_t "+image_name+"[] = {\n")
         
         # Write data in rows of 16 values
         for i in range(0, len(flat_rgb332), 16):
@@ -98,6 +99,8 @@ def convert_bmp_to_rgb332(image_path, image_name):
 
 if __name__ == "__main__":
     # Get image path from command line or use default
-    image_path = "./BSRlogo.bmp"
-    image_name = "BSRlogo"  
-    convert_bmp_to_rgb332(image_path, image_name)
+    rotate = 3
+    extension = ".jpeg"
+    image_name = "kar" 
+    image_path = f"{image_name}{extension}" 
+    convert_bmp_to_rgb332(image_path, image_name, rotate)
