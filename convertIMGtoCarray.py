@@ -1,8 +1,21 @@
+##############################################
+## @Author:  Aditya Yellapuntula Venkata
+## In-house converter for images in specified format to C arrays
+## Generates a C-header file that is ready to be inluded right away
+##############################################
+
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 import sys
 
+## Convert BMP to RGB332 format and verify the 
+# Generate a text file for image data
+# Generate a C header file for the image data ready to be included in an Arduino sketch
+#
+# @param image_path Path to the image file
+# @param image_name Name of the image file
+# @param rotate_k Number of 90 degree rotations to apply to the image
 def convert_bmp_to_rgb332(image_path, image_name, rotate_k):
     """Convert BMP to RGB332 format and verify the conversion."""
     # Load the image
@@ -99,8 +112,8 @@ def convert_bmp_to_rgb332(image_path, image_name, rotate_k):
 
 if __name__ == "__main__":
     # Get image path from command line or use default
-    rotate = 3
-    extension = ".jpeg"
-    image_name = "kar" 
+    rotate = 3              #Rotate image by k * 90 degrees
+    extension = ".jpeg"     #Image extension
+    image_name = "kar"      #Image name
     image_path = f"{image_name}{extension}" 
     convert_bmp_to_rgb332(image_path, image_name, rotate)

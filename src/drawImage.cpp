@@ -6,25 +6,34 @@ TFT_eSPI tft = TFT_eSPI();
 //Array to hold 10 TFT color values
 uint16_t colors[10] = {TFT_RED, TFT_BLUE, TFT_GREEN, TFT_CYAN, TFT_MAGENTA, TFT_YELLOW, TFT_WHITE, TFT_ORANGE, TFT_PINK, TFT_PURPLE};
 
+//Store old image data to clear the relevant portion of screen
 volatile int old_start_x = 0;
 volatile int old_start_y = 0;
 volatile int old_width = 0;
 volatile int old_height = 0;
 
+//Initialize TFT display
 void initDisp(){
     tft.begin();
     tft.fillScreen(TFT_BLACK);
 }
 
+//Slide Show of colors to verify TFT display is working
 void rotateColors(){
     static uint16_t color = 10;
     tft.fillScreen(colors[color]);
     color = (color + 1) % 10;
 }
 
-bool drawImageFromBitmap(image_t image_code) {
+//Draw image on TFT display from bitmap
+//image_code: image to be drawn
+//clear_old: clear the previous image
+//returns: true if image is drawn successfully, false otherwise
+bool drawImageFromBitmap(image_t image_code, bool clear_old) {
     // Clear the previous image
-    tft.fillRect(old_start_x, old_start_y, old_width, old_height, TFT_BLACK);
+    if (clear_old){
+        tft.fillRect(old_start_x, old_start_y, old_width, old_height, TFT_BLACK);
+    }
 
     // Use the converted data
     switch(image_code)

@@ -19,7 +19,7 @@ typedef enum {
 
 //Functions for Image renderer
 void initDisp();
-bool drawImageFromBitmap(image_t image_code);
+bool drawImageFromBitmap(image_t image_code, bool clear_old = true);
 void rotateColors();
 
 
