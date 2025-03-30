@@ -17,7 +17,7 @@ import sys
 #
 # @param gif_path Path to the GIF file
 # @param output_name Name for the output header file (without extension)
-def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None):
+def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None, rotate_k = 0):
     """
     Convert a GIF file to a C header file with each frame as a separate array.
     Frames are stacked vertically in the data structure.
@@ -62,6 +62,7 @@ def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None):
             
             # Convert to numpy array
             img_array = np.array(pil_img)
+            img_array = np.rot90(img_array, k=rotate_k)
             
             # Convert to RGB332 (8-bit, RRRGGGBB)
             r = (img_array[:,:,0] >> 5) & 0x07  # Extract top 3 bits for R
