@@ -73,7 +73,7 @@ void clearScreen(){
     old_height = 0;
 }
 
-void displayFrame(int frame){
+void displayFrame(int frameIndex){
     // Calculate the position and size of the frame to display
     int frame_width = ANIMATION_WIDTH;  // Assuming a fixed width for each frame
     int frame_height = ANIMATION_HEIGHT;  // Assuming a fixed height for each frame
@@ -82,7 +82,7 @@ void displayFrame(int frame){
     int start_x = (WIDTH - frame_width) / 2;
     int start_y = (HEIGHT - frame_height) / 2;
 
-    int offset = frame * frame_width * frame_height;  // Calculate the offset for the current frame
+    int offset = frameIndex * frame_width * frame_height;  // Calculate the offset for the current frame
 
     // Display the frame on the TFT screen
     tft.pushImage(start_x, start_y, frame_width, frame_height, animation + offset, true);
