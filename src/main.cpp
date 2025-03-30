@@ -15,10 +15,12 @@ void setup() {
 void loop() {
     // rotateColors();
     // delay(1000);
-    drawImageFromBitmap(BSR_LOGO);
-    delay(500);
-    canSteering.sendSteeringData();
-    canSteering.runQueue(CAN_QUEUE_PERIOD);
-    drawImageFromBitmap(CAR_IMAGE);
-    delay(500);
+    // drawImageFromBitmap(BSR_LOGO);
+    // delay(500);
+    // canSteering.sendSteeringData();
+    // canSteering.runQueue(CAN_QUEUE_PERIOD);
+    // drawImageFromBitmap(CAR_IMAGE);
+    // delay(500);
+    drawImageFromBitmap(ANIMATION_1, false);  // Draw the animation without clearing the previous image
+    delay(100);
 }

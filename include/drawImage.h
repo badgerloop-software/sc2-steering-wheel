@@ -4,14 +4,16 @@
 #include <SPI.h>
 #include <TFT_eSPI.h> // Hardware-specific library
 
-#include "BSRlogo.h"
-#include "kar.h"
+// #include "BSRlogo.h"
+// #include "kar.h"
+#include "animation.h"
 
 extern const uint8_t BSRlogo[];
 
 typedef enum {
     BSR_LOGO,
-    CAR_IMAGE
+    CAR_IMAGE,
+    ANIMATION_1
 }image_t;
 
 #define HEIGHT 480
@@ -21,6 +23,8 @@ typedef enum {
 void initDisp();
 bool drawImageFromBitmap(image_t image_code, bool clear_old = true);
 void rotateColors();
-
+void clearScreen();
+void playAnimation(bool clear_old = true);
+void displayFrame(int frame);
 
 #endif

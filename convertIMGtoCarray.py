@@ -9,7 +9,114 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import sys
 
-## Convert BMP to RGB332 format and verify the 
+
+## Convert GIF to RGB332 format with all frames stacked vertically
+# Process each frame of an animated GIF into RGB332 format
+# Generate a C header file with frames stacked in a single array
+# Includes helper macros for accessing individual frames
+#
+# @param gif_path Path to the GIF file
+# @param output_name Name for the output header file (without extension)
+def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None):
+    """
+    Convert a GIF file to a C header file with each frame as a separate array.
+    Frames are stacked vertically in the data structure.
+    
+    Args:
+        gif_path (str): Path to the GIF file
+        output_name (str): Name for the output header file (without extension)
+    """
+    import numpy as np
+    from wand.image import Image
+    from PIL import Image as PILImage
+    import io
+    
+    # Open the GIF and coalesce frames
+    with Image(filename=gif_path) as img:
+        img.coalesce()
+        
+        # Get basic information
+        num_frames = len(img.sequence)
+        if max_frames is not None and max_frames > 0:
+            num_frames = min(num_frames, max_frames)
+        width = img.width
+        height = img.height
+        print(f"Processing GIF with {num_frames} frames, dimensions: {width}x{height}")
+        
+        # Array to hold all frame data
+        all_frames_data = []
+        
+        # Convert each frame
+        for i, frame in enumerate(img.sequence):
+            if max_frames is not None and i >= max_frames:
+                break
+
+            # Convert Wand image to PIL image
+            frame_img = frame.clone()
+            frame_blob = frame_img.make_blob(format='bmp')
+            pil_img = PILImage.open(io.BytesIO(frame_blob))
+            
+            # Convert to RGB if not already
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            
+            # Convert to numpy array
+            img_array = np.array(pil_img)
+            
+            # Convert to RGB332 (8-bit, RRRGGGBB)
+            r = (img_array[:,:,0] >> 5) & 0x07  # Extract top 3 bits for R
+            g = (img_array[:,:,1] >> 5) & 0x07  # Extract top 3 bits for G
+            b = (img_array[:,:,2] >> 6) & 0x03  # Extract top 2 bits for B
+            
+            # Pack into a single byte per pixel: RRRGGGBB
+            rgb332 = (r << 5) | (g << 2) | b
+            
+            # Flatten the array and add to collection
+            all_frames_data.append(rgb332.flatten())
+            print(f"Processed frame {i+1}/{num_frames}")
+        
+        # Stack all frames into a single array
+        stacked_data = np.concatenate(all_frames_data)
+        
+        # Create header file
+        header_file = f"{output_name}.h"
+        with open(header_file, "w") as f:
+            f.write(f"// Auto-generated RGB332 data for {gif_path}\n")
+            f.write(f"// Contains {num_frames} frames of {width}x{height} pixels\n\n")
+            
+            f.write(f"#ifndef _{output_name.upper()}_H_\n")
+            f.write(f"#define _{output_name.upper()}_H_\n\n")
+
+            f.write("#include <Arduino.h>\n\n")
+            
+            f.write(f"#define {output_name.upper()}_WIDTH {width}\n")
+            f.write(f"#define {output_name.upper()}_HEIGHT {height}\n")
+            f.write(f"#define {output_name.upper()}_FRAMES {num_frames}\n")
+            f.write(f"#define {output_name.upper()}_FRAME_SIZE ({width}*{height})\n\n")
+            
+            f.write(f"const uint8_t {output_name}[] = {{\n")
+            
+            # Write data in rows of 12 values
+            for i in range(0, len(stacked_data), 12):
+                row = stacked_data[i:i+12]
+                f.write("    " + ", ".join([f"0x{val:02X}" for val in row]))
+                if i + 12 < len(stacked_data):
+                    f.write(",")
+                f.write("\n")
+            
+            f.write("};\n\n")
+            
+            # Add helper macros for accessing individual frames
+            f.write("// Helper macro to access a specific frame\n")
+            f.write(f"#define {output_name.upper()}_FRAME(n) ")
+            f.write(f"(&{output_name}[(n) * {output_name.upper()}_FRAME_SIZE])\n\n")
+            
+            f.write("#endif\n")
+        
+        print(f"Successfully created header file: {header_file}")
+        print(f"Total size: {len(stacked_data)} bytes")
+
+## Convert BMP to RGB332 format and verify the output
 # Generate a text file for image data
 # Generate a C header file for the image data ready to be included in an Arduino sketch
 #
