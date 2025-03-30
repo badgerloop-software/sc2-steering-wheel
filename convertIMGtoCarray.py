@@ -17,6 +17,8 @@ import sys
 #
 # @param gif_path Path to the GIF file
 # @param output_name Name for the output header file (without extension)
+# @param max_frames Maximum number of frames to process (None for all)
+# @param rotate_k Number of 90 degree rotations to apply to each frame (0, 1, 2, or 3)
 def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None, rotate_k = 0):
     """
     Convert a GIF file to a C header file with each frame as a separate array.
