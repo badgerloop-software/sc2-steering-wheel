@@ -10,22 +10,22 @@ import matplotlib.pyplot as plt
 import sys
 
 
-## Convert GIF to RGB332 format with all frames stacked vertically
-# Process each frame of an animated GIF into RGB332 format
+## Convert video to RGB332 format with all frames stacked vertically
+# Process each frame of an animated video into RGB332 format
 # Generate a C header file with frames stacked in a single array
 # Includes helper macros for accessing individual frames
 #
-# @param gif_path Path to the GIF file
+# @param video_path Path to the video file
 # @param output_name Name for the output header file (without extension)
 # @param max_frames Maximum number of frames to process (None for all)
 # @param rotate_k Number of 90 degree rotations to apply to each frame (0, 1, 2, or 3)
-def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None, rotate_k = 0):
+def convert_video_to_rgb332_frames(video_path, output_name, max_frames=None, rotate_k = 0):
     """
-    Convert a GIF file to a C header file with each frame as a separate array.
+    Convert a video file to a C header file with each frame as a separate array.
     Frames are stacked vertically in the data structure.
     
     Args:
-        gif_path (str): Path to the GIF file
+        video_path (str): Path to the video file
         output_name (str): Name for the output header file (without extension)
     """
     import numpy as np
@@ -33,8 +33,8 @@ def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None, rotate_
     from PIL import Image as PILImage
     import io
     
-    # Open the GIF and coalesce frames
-    with Image(filename=gif_path) as img:
+    # Open the video and coalesce frames
+    with Image(filename=video_path) as img:
         img.coalesce()
         
         # Get basic information
@@ -43,7 +43,7 @@ def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None, rotate_
             num_frames = min(num_frames, max_frames)
         width = img.width
         height = img.height
-        print(f"Processing GIF with {num_frames} frames, dimensions: {width}x{height}")
+        print(f"Processing video with {num_frames} frames, dimensions: {width}x{height}")
         
         # Array to hold all frame data
         all_frames_data = []
@@ -84,7 +84,7 @@ def convert_gif_to_rgb332_frames(gif_path, output_name, max_frames=None, rotate_
         # Create header file
         header_file = f"{output_name}.h"
         with open(header_file, "w") as f:
-            f.write(f"// Auto-generated RGB332 data for {gif_path}\n")
+            f.write(f"// Auto-generated RGB332 data for {video_path}\n")
             f.write(f"// Contains {num_frames} frames of {width}x{height} pixels\n\n")
             
             f.write(f"#ifndef _{output_name.upper()}_H_\n")
