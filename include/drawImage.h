@@ -7,6 +7,7 @@
 // #include "BSRlogo.h"
 // #include "kar.h"
 #include "animation.h"
+#include "SDcode.h"
 
 extern const uint8_t BSRlogo[];
 
@@ -26,5 +27,7 @@ void rotateColors();
 void clearScreen();
 void playAnimation(bool clear_old = true);
 void displayFrame(int frame);
+void HeapAnim(bool clear_old = true);
+void HeapDispFrame(int frameIndex);
 
 #endif

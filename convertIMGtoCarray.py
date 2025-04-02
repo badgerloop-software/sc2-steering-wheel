@@ -115,6 +115,15 @@ def convert_video_to_rgb332_frames(video_path, output_name, max_frames=None, rot
             f.write(f"(&{output_name}[(n) * {output_name.upper()}_FRAME_SIZE])\n\n")
             
             f.write("#endif\n")
+                
+        # Save raw array data to a text file
+        txt_filename = f"{output_name}_array.txt"
+        with open(txt_filename, "w") as txt_file:
+            # Write the array values
+            for val in stacked_data:
+                txt_file.write(f"{val}\n")
+
+        print(f"Saved raw array data to {txt_filename}")
         
         print(f"Successfully created header file: {header_file}")
         print(f"Total size: {len(stacked_data)} bytes")
