@@ -264,7 +264,11 @@ void HeapAnim(bool clear_old) {
   uint32_t startTime = millis();
   
   // Display each frame in sequence - no clearing between frames
-  for (int i = 0; i < 11; i++) {
+
+  //////////////////////////////////////////////////////////////////////////////////////
+  //I havent tested if using totalFrames is correct, when I tested it, the loop to 11
+  //////////////////////////////////////////////////////////////////////////////////////
+  for (int i = 0; i < totalFrames; i++) {  
     uint32_t frameStart = millis();
     HeapDispFrame(i);
     Serial.printf("Frame %d timing: %d ms\n", i, millis() - frameStart);
