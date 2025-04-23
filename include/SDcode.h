@@ -7,7 +7,7 @@
 
 extern const char* ANIM_FILEPATH;
 
-void initSD(SPIClass spi);
+void initSD();
 
 uint8_t *initFrameHeap(int frameSize);
 

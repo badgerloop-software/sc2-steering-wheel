@@ -4,16 +4,16 @@
 
 #include "drawImage.h"
 
-CANSteering canSteering(CAN1, DEF);
+// CANSteering canSteering(CAN1, DEF);
 
 void setup() {
     Serial.begin(115200);
     initDisp();
-    initIO();
+    // initIO();
 }
 
 void loop() {
-    // rotateColors();
+     rotateColors();
     // delay(1000);
     // drawImageFromBitmap(BSR_LOGO);
     // delay(500);
@@ -21,6 +21,6 @@ void loop() {
     // canSteering.runQueue(CAN_QUEUE_PERIOD);
     // drawImageFromBitmap(CAR_IMAGE);
     // delay(500);
-    drawImageFromBitmap(ANIMATION_1, false);  // Draw the animation without clearing the previous image
+    //drawImageFromBitmap(JONATHAN, false);  // Draw the animation without clearing the previous image
     delay(100);
 }

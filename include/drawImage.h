@@ -14,7 +14,8 @@ extern const uint8_t BSRlogo[];
 typedef enum {
     BSR_LOGO,
     CAR_IMAGE,
-    ANIMATION_1
+    ANIMATION_1,
+    JONATHAN,
 }image_t;
 
 #define HEIGHT 480
@@ -29,5 +30,8 @@ void playAnimation(bool clear_old = true);
 void displayFrame(int frame);
 void HeapAnim(bool clear_old = true);
 void HeapDispFrame(int frameIndex);
+
+void jpegRender(int xpos, int ypos);
+void drawSdJpeg(const char *filename, int xpos, int ypos);
 
 #endif

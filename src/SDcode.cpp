@@ -1,15 +1,65 @@
 #include "SDcode.h"
 
-const char* ANIM_FILEPATH = "/bsr/animation_array.txt";
+const char* ANIM_FILEPATH = "bsr/som.txt";
 
-void initSD(SPIClass spi) {
+void printDirectory(File dir, int numTabs);
+
+void initSD() {
     // Initialize the SD card
-    if (!SD.begin(A3)) {
+    if (!SD.begin(D3)) {
         Serial.println("SD card initialization failed!");
         return;
     }
+
+    File root = SD.open("/bsr");
+    
+
+    printDirectory(root, 0);
     Serial.println("SD card initialized successfully.");
 }
+
+void printDirectory(File dir, int numTabs) {
+
+    while (true) {
+  
+      File entry =  dir.openNextFile();
+  
+      if (! entry) {
+  
+        // no more files
+  
+        break;
+  
+      }
+  
+      for (uint8_t i = 0; i < numTabs; i++) {
+  
+        Serial.print('\t');
+  
+      }
+  
+      Serial.print(entry.name());
+  
+      if (entry.isDirectory()) {
+  
+        Serial.println("/");
+  
+        printDirectory(entry, numTabs + 1);
+  
+      } else {
+  
+        // files have sizes, directories do not
+  
+        Serial.print("\t\t");
+  
+        Serial.println(entry.size(), DEC);
+  
+      }
+  
+      entry.close();
+  
+    }
+  }
 
 uint8_t *initFrameHeap(int frameSize) {
     // Allocate memory for the frame heap
@@ -33,7 +83,11 @@ void freeFrameHeap(uint8_t *frameHeap) {
 
 void loadFrameIntoHeap(int startIndex, int heapSize, uint8_t *frameHeap) {
     // Open the SD card file for reading
-    File file = SD.open(ANIM_FILEPATH);
+    File file = SD.open("som.txt", FILE_READ);
+    if (SD.exists(ANIM_FILEPATH) == false) {
+        Serial.println("Animation file does not exist!");
+        return;
+    }
     if (!file) {
         Serial.println("Failed to open animation file");
         return;

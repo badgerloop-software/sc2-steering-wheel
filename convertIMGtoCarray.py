@@ -128,6 +128,97 @@ def convert_video_to_rgb332_frames(video_path, output_name, max_frames=None, rot
         print(f"Successfully created header file: {header_file}")
         print(f"Total size: {len(stacked_data)} bytes")
 
+## Convert video to RGB332 format and save each frame as a binary file
+# Process each frame of an animated video into RGB332 format
+# Save each frame as a binary file in the specified output folder
+#
+# @param video_path Path to the video file
+# @param output_folder Path to the output folder where binary files will be stored
+# @param max_frames Maximum number of frames to process (None for all)
+# @param rotate_k Number of 90 degree rotations to apply to each frame (0, 1, 2, or 3)
+def convert_video_to_rgb332_bin_frames(video_path, output_folder, max_frames=None, rotate_k=0):
+    """
+    Convert a video file to a series of binary files, each containing a frame in RGB332 format.
+    
+    Args:
+        video_path (str): Path to the video file
+        output_folder (str): Path to the output folder where binary files will be stored
+        max_frames (int, optional): Maximum number of frames to process. Defaults to None (all frames).
+        rotate_k (int, optional): Number of 90 degree rotations to apply. Defaults to 0.
+    """
+    import numpy as np
+    from wand.image import Image
+    from PIL import Image as PILImage
+    import io
+    import os
+    import shutil
+    
+    # Create output directory, clearing it if it exists
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+    os.makedirs(output_folder)
+    
+    # Open the video and coalesce frames
+    with Image(filename=video_path) as img:
+        img.coalesce()
+        
+        # Get basic information
+        num_frames = len(img.sequence)
+        if max_frames is not None and max_frames > 0:
+            num_frames = min(num_frames, max_frames)
+        width = img.width
+        height = img.height
+        print(f"Processing video with {num_frames} frames, dimensions: {width}x{height}")
+        
+        # Convert each frame
+        for i, frame in enumerate(img.sequence):
+            if max_frames is not None and i >= max_frames:
+                break
+
+            # Convert Wand image to PIL image
+            frame_img = frame.clone()
+            frame_blob = frame_img.make_blob(format='bmp')
+            pil_img = PILImage.open(io.BytesIO(frame_blob))
+            
+            # Convert to RGB if not already
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            
+            # Convert to numpy array
+            img_array = np.array(pil_img)
+            img_array = np.rot90(img_array, k=rotate_k)
+            
+            # Get frame dimensions (might be different after rotation)
+            frame_height, frame_width, _ = img_array.shape
+            
+            # Convert to RGB332 (8-bit, RRRGGGBB)
+            r = (img_array[:,:,0] >> 5) & 0x07  # Extract top 3 bits for R
+            g = (img_array[:,:,1] >> 5) & 0x07  # Extract top 3 bits for G
+            b = (img_array[:,:,2] >> 6) & 0x03  # Extract top 2 bits for B
+            
+            # Pack into a single byte per pixel: RRRGGGBB
+            rgb332 = (r << 5) | (g << 2) | b
+            
+            # Save to binary file
+            bin_filename = os.path.join(output_folder, f"frame{i+1}.bin")
+            with open(bin_filename, "wb") as bin_file:
+                # Convert to bytes and write
+                rgb332.astype(np.uint8).tofile(bin_file)
+            
+            print(f"Saved frame {i+1}/{num_frames} to {bin_filename} - Dimensions: {frame_width}x{frame_height}")
+        
+        # Create info file with metadata
+        info_filename = os.path.join(output_folder, "info.txt")
+        with open(info_filename, "w") as info_file:
+            info_file.write(f"Video: {os.path.basename(video_path)}\n")
+            info_file.write(f"Frames: {num_frames}\n")
+            info_file.write(f"Width: {width}\n")
+            info_file.write(f"Height: {height}\n")
+            info_file.write("Format: RGB332 (RRRGGGBB)\n")
+        
+        print(f"Successfully exported {num_frames} frames to {output_folder}")
+        print(f"Frame size: {width*height} bytes")
+
 ## Convert BMP to RGB332 format and verify the output
 # Generate a text file for image data
 # Generate a C header file for the image data ready to be included in an Arduino sketch
@@ -231,8 +322,11 @@ def convert_bmp_to_rgb332(image_path, image_name, rotate_k):
 
 if __name__ == "__main__":
     # Get image path from command line or use default
-    rotate = 3              #Rotate image by k * 90 degrees
-    extension = ".jpeg"     #Image extension
-    image_name = "kar"      #Image name
-    image_path = f"{image_name}{extension}" 
-    convert_bmp_to_rgb332(image_path, image_name, rotate)
+    # rotate = 3              #Rotate image by k * 90 degrees
+    # extension = ".jpeg"     #Image extension
+    # image_name = "kar"      #Image name
+    # image_path = f"{image_name}{extension}" 
+    # convert_bmp_to_rgb332(image_path, image_name, rotate)
+
+    convert_video_to_rgb332_bin_frames("disint.gif", "output_frames", max_frames=10, rotate_k=1)
+

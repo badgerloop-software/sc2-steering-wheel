@@ -1,0 +1,5 @@
+Video: disint.gif
+Frames: 10
+Width: 220
+Height: 211
+Format: RGB332 (RRRGGGBB)
