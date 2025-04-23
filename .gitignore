@@ -5,7 +5,7 @@
 .vscode/ipch
 ./__pycache__/
 
-./output_frames
+output_frames
 *.mp4
 *.gif
 *.jpeg
