@@ -1,26 +1,20 @@
 #include <Arduino.h>
-#include "canSteering.h"
-#include "IOManagement.h"
-
-#include "drawImage.h"
-
-// CANSteering canSteering(CAN1, DEF);
+#include "display.h"
 
 void setup() {
-    Serial.begin(115200);
-    initDisp();
-    // initIO();
+  Serial.begin(115200);
+  Serial.println("Starting...");
+  initDisplay(false);
+  
+  // drawSdJpeg("/bsr/Jonathan.jpeg", 130, 0);
+  HeapAnim();
+  Serial.println("Setup done.");
 }
 
 void loop() {
-     rotateColors();
-    // delay(1000);
-    // drawImageFromBitmap(BSR_LOGO);
-    // delay(500);
-    // canSteering.sendSteeringData();
-    // canSteering.runQueue(CAN_QUEUE_PERIOD);
-    // drawImageFromBitmap(CAR_IMAGE);
-    // delay(500);
-    //drawImageFromBitmap(JONATHAN, false);  // Draw the animation without clearing the previous image
-    delay(100);
+  // rotateColors();
+  // delay(42);
+  // drawSdJpeg("/test.jpg", 0, 0);
+
+  // HeapAnim();
 }
