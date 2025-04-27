@@ -2,18 +2,17 @@
 #define __IO_MANAGEMENT_H__
 
 #include <Arduino.h>
-#include "STM32TimerInterrupt_Generic.h"
-#include "adc.h"
+#include "ESP32TimerInterrupt.hpp"
 
 //Macros for pins
-#define DIRECTION_SWITCH_PIN        PB1
-#define LEFT_BLINK_PIN              PA9
-#define RIGHT_BLINK_PIN             PA10
-#define CRZ_MODE_A_PIN              PB6
-#define CRZ_SET_PIN                 PB5
-#define CRZ_RESET_PIN               PB4
-#define HORN_PIN                    PA0
-#define REGEN_BRAKE_PIN             ADC_CHANNEL_6 // PA1
+// #define DIRECTION_SWITCH_PIN        PB1
+// #define LEFT_BLINK_PIN              PA9
+// #define RIGHT_BLINK_PIN             PA10
+// #define CRZ_MODE_A_PIN              PB6
+// #define CRZ_SET_PIN                 PB5
+// #define CRZ_RESET_PIN               PB4
+// #define HORN_PIN                    PA0
+// #define REGEN_BRAKE_PIN             ADC_CHANNEL_6 // PA1
 
 #define IO_UPDATE_PERIOD 100000 // us
 
@@ -35,6 +34,6 @@ extern volatile float regen_brake;
 void initIO();
 
 // read digital and analog inputs
-void readIO();
+bool readIO(void * timerNo);
 
 #endif
