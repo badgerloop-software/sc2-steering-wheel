@@ -7,12 +7,12 @@ void setup() {
   initDisplay(false);
   
   // drawSdJpeg("/bsr/Jonathan.jpeg", 130, 0);
-  HeapAnim();
+  // HeapAnim();
   Serial.println("Setup done.");
 }
 
 void loop() {
-  // rotateColors();
+  rotateColors();
   // delay(42);
   // drawSdJpeg("/test.jpg", 0, 0);
 

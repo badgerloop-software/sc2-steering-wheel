@@ -54,8 +54,6 @@ void initDisplay(bool SD_enable){
     digitalWrite(15, HIGH); // TFT screen chip select
     digitalWrite( 5, HIGH); // SD card chips select, must use GPIO 5 (ESP32 SS)
 
-    tft.fillScreen(TFT_BLACK);
-
     tft.begin();
     tft.setRotation(1);  // Somehow important to have an odd rotation number
                           //Display does not work properly if you do not set this and initialise the SD card
