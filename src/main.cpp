@@ -1,16 +1,20 @@
 #include <Arduino.h>
-#include "canSteering.h"
-#include "IOManagement.h"
-
-CANSteering canSteering(CAN1, DEF);
+#include "display.h"
 
 void setup() {
-    Serial.begin(115200);
-
-    initIO();
+  Serial.begin(115200);
+  Serial.println("Starting...");
+  initDisplay(false);
+  
+  // drawSdJpeg("/bsr/Jonathan.jpeg", 130, 0);
+  // HeapAnim();
+  Serial.println("Setup done.");
 }
 
 void loop() {
-    canSteering.sendSteeringData();
-    canSteering.runQueue(CAN_QUEUE_PERIOD);
+  rotateColors();
+  // delay(42);
+  // drawSdJpeg("/test.jpg", 0, 0);
+
+  // HeapAnim();
 }
