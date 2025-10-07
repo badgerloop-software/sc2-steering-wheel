@@ -9,6 +9,6 @@ void CANSteering::readHandler(CanFrame msg) {
 
 void CANSteering::sendSteeringData() {
     send_success = true;
-    send_success &= this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data), 100);
-    send_success &= this->sendMessage(0x301, (void*)&regen_brake, sizeof(float), 100);
+    send_success &= this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data));
+    send_success &= this->sendMessage(0x301, (void*)&regen_brake, sizeof(float));
 }
