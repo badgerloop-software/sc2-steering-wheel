@@ -1,7 +1,7 @@
 #include "IOManagement.h"
 
 volatile Digital_Data digital_data;
-volatile float regen_brake = 100.0f;
+volatile uint16_t regen_brake;
 volatile uint16_t number_reads = 0;
 hw_timer_t *io_timer = NULL;
 
@@ -16,19 +16,20 @@ void initIO() {
     pinMode(CRZ_SET_PIN, INPUT);
     pinMode(CRZ_RESET_PIN, INPUT);
 
-    // Initialize analog pins
-
     // Initialize timer for reading inputs
     io_timer = timerBegin(0,  // which timer (choose between 0 and 3)
                             80, // prescaler
                             true // counts up
     );
     timerAttachInterrupt(io_timer, &readIO, true);
-    timerAlarmWrite(io_timer, 100000, true);
+    timerAlarmWrite(io_timer, IO_UPDATE_PERIOD, true);
     timerAlarmEnable(io_timer); // start the timer
 }
 
 void IRAM_ATTR readIO() {
+    // Read analog input
+    regen_brake = analogRead(REGEN_BRAKE_PIN);
+
     // Read digital inputs
     digital_data.headlight = digitalRead(HEADLIGHT_PIN);
     digital_data.left_blink = digitalRead(LEFT_BLINK_PIN);
@@ -39,7 +40,4 @@ void IRAM_ATTR readIO() {
     digital_data.crz_set = digitalRead(CRZ_SET_PIN);
     digital_data.crz_reset = digitalRead(CRZ_RESET_PIN);
     number_reads++;
-
-    // // Read analog input
-    // regen_brake = readADC(REGEN_BRAKE_PIN);
 }

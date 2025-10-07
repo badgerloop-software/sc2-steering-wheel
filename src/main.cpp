@@ -16,6 +16,8 @@ void setup() {
 void loop() {
     canSteering.sendSteeringData();
     canSteering.runQueue(1000);
+    printf("\033[2J"); // clears the screen
+    printf("regen brake: %f\n", 3.3 * regen_brake / 4095);
     printf("send_success: %d\n", send_success);
     printf("headlight: %d\n", digital_data.headlight);
     printf("left blink: %d\n", digital_data.left_blink);

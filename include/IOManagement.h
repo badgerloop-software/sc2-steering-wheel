@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 // Macros for pins
-// #define REGEN_BRAKE_PIN             36
+#define REGEN_BRAKE_PIN             36
 #define HEADLIGHT_PIN               39
 #define LEFT_BLINK_PIN              34
 #define RIGHT_BLINK_PIN             35
@@ -29,7 +29,7 @@ struct Digital_Data {
 };
 
 extern volatile Digital_Data digital_data;
-extern volatile float regen_brake;
+extern volatile uint16_t regen_brake;
 extern volatile uint16_t number_reads;
 
 // initialize digital and analog pins, and timer to read pins
