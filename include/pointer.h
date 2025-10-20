@@ -5,8 +5,8 @@
 #include <Arduino.h>
 
 // Max/min value for integer input (0 = 0 degrees, 100 = 180 degrees)
-#define MAX_VALUE 100
-#define MIN_VALUE 0
+#define MAX_SPEED 100
+#define MIN_SPEED 0
 
 // Pointer color and length
 #define POINTER_COLOR TFT_RED
@@ -20,6 +20,6 @@ void begin();
 
 void updatePointerAngle(double theta);
 
-void updatePointer(int value);
+void updatePointer(int speed);
 
 #endif

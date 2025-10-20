@@ -26,9 +26,9 @@ void begin() {
     int screenW = tft.width();
     int screenH = tft.height();
 
-    // sets pivot point at middle of screen
-    pivotX = screenW / 2; 
-    pivotY = screenH / 2;
+    // sets pivot point at bottom left of screen
+    pivotX = screenW / 4; 
+    pivotY = screenH / 4;
 
     // sets pointer to 0 degrees
     currentTheta = 0.0;
@@ -49,12 +49,12 @@ void updatePointerAngle(double theta) {
 }
 
 // updates pointer given a integer value defined in pointer.h
-void updatePointer(int value) {
+void updatePointer(int speed) {
     // checks that value is between min and max values
-    if (value < MIN_VALUE) value = MIN_VALUE;
-    if (value > MAX_VALUE) value = MAX_VALUE;
+    if (speed < MIN_SPEED) speed = MIN_SPEED;
+    if (speed > MAX_SPEED) speed = MAX_SPEED;
 
     // converts to degrees and calls angle method
-    double theta = 180.0 * value / MAX_VALUE;
+    double theta = 180.0 * speed / MAX_SPEED;
     updatePointerAngle(theta);
 }
