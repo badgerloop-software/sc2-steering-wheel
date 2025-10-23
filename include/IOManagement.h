@@ -2,39 +2,40 @@
 #define __IO_MANAGEMENT_H__
 
 #include <Arduino.h>
-#include "STM32TimerInterrupt_Generic.h"
-#include "adc.h"
 
-//Macros for pins
-#define DIRECTION_SWITCH_PIN        PB1
-#define LEFT_BLINK_PIN              PA9
-#define RIGHT_BLINK_PIN             PA10
-#define CRZ_MODE_A_PIN              PB6
-#define CRZ_SET_PIN                 PB5
-#define CRZ_RESET_PIN               PB4
-#define HORN_PIN                    PA0
-#define REGEN_BRAKE_PIN             ADC_CHANNEL_6 // PA1
+// Macros for pins
+#define REGEN_BRAKE_PIN             36
+#define HEADLIGHT_PIN               39
+#define LEFT_BLINK_PIN              34
+#define RIGHT_BLINK_PIN             35
+#define DIRECTION_SWITCH_PIN        32
+#define HORN_PIN                    33
+#define CRZ_MODE_A_PIN              25
+#define CRZ_SET_PIN                 26
+#define CRZ_RESET_PIN               27
+
 
 #define IO_UPDATE_PERIOD 100000 // us
 
 struct Digital_Data {
-    bool direction_switch : 1;      // input
+    bool headlight : 1;             // input
     bool left_blink : 1;            // input
     bool right_blink : 1;           // input
+    bool direction_switch : 1;      // input
+    bool horn : 1;                  // input
     bool crz_mode_a : 1;            // input
     bool crz_set : 1;               // input
     bool crz_reset : 1;             // input
-    bool horn : 1;                  // input
 };
 
 extern volatile Digital_Data digital_data;
+extern volatile uint16_t regen_brake;
+extern volatile uint16_t number_reads;
 
-extern volatile float regen_brake;
-
-// initialize digital and analog pins
+// initialize digital and analog pins, and timer to read pins
 void initIO();
 
-// read digital and analog inputs
-void readIO();
+// ISR to read digital and analog inputs
+void IRAM_ATTR readIO();
 
 #endif
