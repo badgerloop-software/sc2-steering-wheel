@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <math.h>
 
-TFT_eSPI tft = TFT_eSPI();
+//TFT_eSPI tft = TFT_eSPI();
 
 static int pivotX = 0;                  // x coord of pivot point
 static int pivotY = 0;                  // y coord of pivot point

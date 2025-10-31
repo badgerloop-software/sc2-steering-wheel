@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "display.h"
 #include "pointer.h"
+#include "speedometer.h"
 
 void setup() {
   Serial.begin(115200);
@@ -10,10 +11,12 @@ void setup() {
   // drawSdJpeg("/bsr/Jonathan.jpeg", 130, 0);
   // HeapAnim();
   Serial.println("Setup done.");
+  begin();
+  initSpeedometer();
 }
 
 void loop() {
-  rotateColors();
+  // rotateColors();
   // delay(42);
   // drawSdJpeg("/test.jpg", 0, 0);
 
