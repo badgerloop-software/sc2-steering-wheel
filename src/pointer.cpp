@@ -58,3 +58,36 @@ void updatePointer(int value) {
     double theta = 180.0 * value / MAX_VALUE;
     updatePointerAngle(theta);
 }
+
+// draw static dial/background for the pointer (ticks, pivot, etc.)
+void drawPointerBackground() {
+    // Ensure background is cleared
+    tft.fillScreen(BG_COLOR);
+
+    // radius for the tick marks
+    int radius = length + 8;
+
+    // draw ticks every 10 units (0..100) mapped to 0..180 degrees
+    for (int v = MIN_VALUE; v <= MAX_VALUE; v += 10) {
+        double theta = 180.0 * v / MAX_VALUE;
+        int x1 = pivotX + (radius - 8) * cos(theta * DEG_TO_RAD);
+        int y1 = pivotY + (radius - 8) * sin(theta * DEG_TO_RAD);
+        int x2 = pivotX + (radius) * cos(theta * DEG_TO_RAD);
+        int y2 = pivotY + (radius) * sin(theta * DEG_TO_RAD);
+        tft.drawLine(x1, y1, x2, y2, TFT_WHITE);
+    }
+
+    // draw outer semicircle (optional)
+    // approximate by drawing many points along arc
+    for (int deg = 0; deg <= 180; deg += 2) {
+        int x = pivotX + radius * cos(deg * DEG_TO_RAD);
+        int y = pivotY + radius * sin(deg * DEG_TO_RAD);
+        tft.drawPixel(x, y, TFT_WHITE);
+    }
+
+    // pivot center
+    tft.fillCircle(pivotX, pivotY, 4, TFT_WHITE);
+
+    // redraw current pointer on top of background
+    updatePointerAngle(currentTheta);
+}

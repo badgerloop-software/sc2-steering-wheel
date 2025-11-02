@@ -22,7 +22,7 @@ volatile int old_height = 0;
 
 int totalFrames = 0;
 
-TFT_eSPI tft = TFT_eSPI();
+extern TFT_eSPI tft;
 
 //Heap pointer for animation frames
 uint8_t *frameHeap = NULL;

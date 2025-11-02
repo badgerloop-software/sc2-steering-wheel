@@ -1,11 +1,16 @@
 #include <Arduino.h>
 #include "display.h"
 #include "pointer.h"
+#include "canSteering.h"
+
+extern CANSteering canSteering;
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting...");
-  initDisplay(false);
+  initDisplay(true);
+  begin(); // initialize pointer display
+  canSteering.begin();
   
   // drawSdJpeg("/bsr/Jonathan.jpeg", 130, 0);
   // HeapAnim();
@@ -14,6 +19,20 @@ void setup() {
 
 void loop() {
   rotateColors();
+
+  int angleDeg = canSteering.getSteeringAngle();
+  int speed = canSteering.getVehicleSpeed();
+  
+  if(angleDeg >=0){
+    updatePointerAngle((double)angleDeg);
+  }else{
+    updatePointer(speed);
+  }
+delay(20);
+
+
+
+  // rotateColors();
   // delay(42);
   // drawSdJpeg("/test.jpg", 0, 0);
 
