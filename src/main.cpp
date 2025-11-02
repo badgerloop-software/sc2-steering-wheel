@@ -3,14 +3,20 @@
 #include "pointer.h"
 #include "canSteering.h"
 
-extern CANSteering canSteering;
+#define CAN_TX		21
+#define CAN_RX		22
+
+CANSteering canSteering(CAN_TX, CAN_RX, 10, 10, 250);
+extern bool send_success;
+
+extern float stuff;
+extern float speedsig;
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting...");
-  initDisplay(true);
+  initIO();
   begin(); // initialize pointer display
-  canSteering.begin();
   
   // drawSdJpeg("/bsr/Jonathan.jpeg", 130, 0);
   // HeapAnim();
@@ -18,17 +24,15 @@ void setup() {
 }
 
 void loop() {
-  rotateColors();
+  // rotateColors();
+  canSteering.runQueue(CAN_QUEUE_PERIOD);
 
-  int angleDeg = canSteering.getSteeringAngle();
-  int speed = canSteering.getVehicleSpeed();
+  float speed = speedsig;
+
+  Serial.printf("Speed: %.2f\n", speed);
+
   
-  if(angleDeg >=0){
-    updatePointerAngle((double)angleDeg);
-  }else{
-    updatePointer(speed);
-  }
-delay(20);
+  updatePointer(speed);
 
 
 

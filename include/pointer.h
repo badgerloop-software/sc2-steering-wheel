@@ -22,4 +22,5 @@ void updatePointerAngle(double theta);
 
 void updatePointer(int value);
 
+void drawPointerBackground();
 #endif

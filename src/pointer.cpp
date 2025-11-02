@@ -35,6 +35,8 @@ void begin() {
     updatePointerAngle(0.0);
 
     Serial.println("begin");
+
+    drawPointerBackground();            // draws static background for pointer
 }
 
 // updates pointer given an angle in degrees

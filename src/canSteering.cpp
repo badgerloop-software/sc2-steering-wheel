@@ -1,23 +1,34 @@
-// #include "canSteering.h"
 
-// CANSteering::CANSteering(CAN_TypeDef* canPort, CAN_PINS pins, int frequency) : CANManager(canPort, pins, frequency) {};
-
-// void CANSteering::readHandler(CAN_message_t msg) {
-    
-// }
-
-// void CANSteering::sendSteeringData() {
-//     this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data));
-//     this->sendMessage(0x301, (void*)&regen_brake, sizeof(float));
-// }
 #include "canSteering.h"
 
 #define MAX_ANALOG_VALUE 4095
 
+float stuff = 0.0;
+float speedsig = 0.0;
+
 bool send_success;
 CANSteering::CANSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue, uint16_t frequency) : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {};
+int CANSteering::getVehicleSpeed() {
+    // Placeholder implementation
+    // In a real scenario, this would extract the vehicle speed from received CAN messages
+    return 42; // Example speed value
+}
 
 void CANSteering::readHandler(CanFrame msg) {
+    switch (msg.identifier){
+        case 0x200:{
+            stuff = *((float*)msg.data);
+            break;
+        }
+
+        case 0x201:{
+            speedsig = *((float*)msg.data);
+            break;
+        }
+        default:
+            break;
+    }
+
 
 }
 
