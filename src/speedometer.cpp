@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include <math.h>
 
-int lowAngle = MIN_VALUE + 270;
-int highAngle = MAX_VALUE - 10;
+int lowAngle = MIN_SPEED + 270;
+int highAngle = MAX_SPEED - 10;
 // Starts up the spedometer arc
 void initSpeedometer() {
     // Initializes the pointer for the speedometer
