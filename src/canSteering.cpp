@@ -2,10 +2,26 @@
 
 #define MAX_ANALOG_VALUE 4095
 
+float stuff = 0.0;
+float speedsig = 0.0;
+
 bool send_success;
 CANSteering::CANSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue, uint16_t frequency) : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {};
-
 void CANSteering::readHandler(CanFrame msg) {
+    switch (msg.identifier){
+        case 0x200:{
+            stuff = *((float*)msg.data);
+            break;
+        }
+
+        case 0x201:{
+            speedsig = *((float*)msg.data);
+            break;
+        }
+        default:
+            break;
+    }
+
 
 }
 

@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include "canSteering.h"
 #include "IOManagement.h"
+#include "display.h"
+#include "pointer.h"
+#include "speedometer.h"
 
 #define CAN_TX		21
 #define CAN_RX		22
@@ -8,14 +11,30 @@
 CANSteering canSteering(CAN_TX, CAN_RX, 10, 10, 250);
 extern bool send_success;
 
+extern float stuff;
+extern float speedsig;
+
 void setup() {
     Serial.begin(115200);
     initIO();
+
+    begin();
+    initSpeedometer();
 }
 
 void loop() {
     canSteering.sendSteeringData();
-    canSteering.runQueue(1000);
+
+    canSteering.runQueue(CAN_QUEUE_PERIOD);
+
+    float speed = speedsig;
+
+    Serial.printf("Speed: %.2f\n", speed);
+
+    
+    updatePointer(speed);
+
+
     printf("\033[2J"); // clears the screen
     printf("regen brake: %f\n", 3.3 * regen_brake / 4095);
     printf("send_success: %d\n", send_success);
