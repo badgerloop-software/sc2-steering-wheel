@@ -31,8 +31,8 @@ struct Digital_Data {
 };
 
 extern volatile Digital_Data digital_data;
-extern volatile uint16_t regen_brake;
-extern volatile uint16_t throttle;
+extern volatile float regen_brake;
+extern volatile float throttle;
 extern volatile bool hazards;
 extern volatile uint8_t drive_mode;
 extern volatile uint16_t number_reads;
