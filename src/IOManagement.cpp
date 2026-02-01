@@ -15,7 +15,6 @@ void initIO() {
     pinMode(CRZ_MODE_A_PIN, INPUT);
     pinMode(CRZ_SET_PIN, INPUT);
     pinMode(CRZ_RESET_PIN, INPUT);
-    pinMode(THROTTLE_PIN, INPUT);
     pinMode(HAZARDS_PIN, INPUT);
     pinMode(DRIVE_MODE_PIN, INPUT);
 
