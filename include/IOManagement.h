@@ -2,6 +2,7 @@
 #define __IO_MANAGEMENT_H__
 
 #include <Arduino.h>
+#include "adc.h"
 
 // Macros for pins
 #define REGEN_BRAKE_PIN             36

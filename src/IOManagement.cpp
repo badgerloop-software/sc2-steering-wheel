@@ -26,12 +26,14 @@ void initIO() {
     timerAttachInterrupt(io_timer, &readIO, true);
     timerAlarmWrite(io_timer, IO_UPDATE_PERIOD, true);
     timerAlarmEnable(io_timer); // start the timer
+
+    initADC();
 }
 
 void IRAM_ATTR readIO() {
     // Read analog input
-    regen_brake = analogRead(REGEN_BRAKE_PIN);
-    throttle = analogRead(THROTTLE_PIN);
+    regen_brake = readADC(REGEN_BRAKE_PIN);
+    throttle = readADC(THROTTLE_PIN);
 
     // Read digital inputs
     digital_data.headlight = digitalRead(HEADLIGHT_PIN);
