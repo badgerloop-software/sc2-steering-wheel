@@ -46,5 +46,8 @@ void loop() {
     printf("crzmodea: %d\n", digital_data.crz_mode_a);
     printf("crz_set: %d\n", digital_data.crz_set);
     printf("crz_reset: %d\n", digital_data.crz_reset);
+    printf("throttle: %d\n", throttle);
+    printf("hazards: %d\n", hazards);
+    printf("drive_mode: %d\n", drive_mode);
     printf("number reads: %d\n", number_reads);
 }

@@ -13,7 +13,9 @@
 #define CRZ_MODE_A_PIN              25
 #define CRZ_SET_PIN                 26
 #define CRZ_RESET_PIN               27
-
+#define THROTTLE_PIN               13
+#define HAZARDS_PIN                14
+#define DRIVE_MODE_PIN              4
 
 #define IO_UPDATE_PERIOD 100000 // us
 
@@ -30,6 +32,9 @@ struct Digital_Data {
 
 extern volatile Digital_Data digital_data;
 extern volatile uint16_t regen_brake;
+extern volatile uint16_t throttle;
+extern volatile bool hazards;
+extern volatile uint8_t drive_mode;
 extern volatile uint16_t number_reads;
 
 // initialize digital and analog pins, and timer to read pins

@@ -30,4 +30,7 @@ void CANSteering::sendSteeringData() {
     float regen_brake_calculation = 3.3 * regen_brake / MAX_ANALOG_VALUE;
     send_success &= this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data));
     send_success &= this->sendMessage(0x301, (void*)&regen_brake_calculation, sizeof(float));
+    send_success &= this->sendMessage(0x302, (void*)&throttle, sizeof(uint16_t));
+    send_success &= this->sendMessage(0x303, (void*)&drive_mode, sizeof(uint8_t));
+    send_success &= this->sendMessage(0x304, (void*)&hazards, sizeof(bool));
 }

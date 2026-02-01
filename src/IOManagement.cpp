@@ -15,6 +15,9 @@ void initIO() {
     pinMode(CRZ_MODE_A_PIN, INPUT);
     pinMode(CRZ_SET_PIN, INPUT);
     pinMode(CRZ_RESET_PIN, INPUT);
+    pinMode(THROTTLE_PIN, INPUT);
+    pinMode(HAZARDS_PIN, INPUT);
+    pinMode(DRIVE_MODE_PIN, INPUT);
 
     // Initialize timer for reading inputs
     io_timer = timerBegin(0,  // which timer (choose between 0 and 3)
@@ -29,6 +32,7 @@ void initIO() {
 void IRAM_ATTR readIO() {
     // Read analog input
     regen_brake = analogRead(REGEN_BRAKE_PIN);
+    throttle = analogRead(THROTTLE_PIN);
 
     // Read digital inputs
     digital_data.headlight = digitalRead(HEADLIGHT_PIN);
@@ -39,5 +43,9 @@ void IRAM_ATTR readIO() {
     digital_data.crz_mode_a = digitalRead(CRZ_MODE_A_PIN);
     digital_data.crz_set = digitalRead(CRZ_SET_PIN);
     digital_data.crz_reset = digitalRead(CRZ_RESET_PIN);
+
+    hazards = digitalRead(HAZARDS_PIN);
+    drive_mode = digitalRead(DRIVE_MODE_PIN);
+    
     number_reads++;
 }
