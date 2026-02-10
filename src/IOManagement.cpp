@@ -1,10 +1,10 @@
 #include "IOManagement.h"
 
 volatile Digital_Data digital_data;
-volatile uint16_t regen_brake;
-volatile uint16_t throttle;
+volatile float regen_brake;
+volatile float throttle;
 volatile uint16_t number_reads = 0;
-volatile uint8_t hazards = 0;
+volatile bool hazards = 0;
 volatile uint8_t drive_mode = 0;
 hw_timer_t *io_timer = NULL;
 
