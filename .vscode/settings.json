@@ -14,5 +14,6 @@
         "mutex": "cpp",
         "regex": "cpp",
         "iterator": "cpp"
-    }
+    },
+    "r.lsp.promptToInstall": false
 }
