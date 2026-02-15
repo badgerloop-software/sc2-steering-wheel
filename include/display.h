@@ -38,5 +38,6 @@ void HeapDispFrame(int frameIndex);
 
 void convertTextToBinaryFrames(const char* textFilePath);
 
+void drawBatteryFault(bool active);
 
 #endif

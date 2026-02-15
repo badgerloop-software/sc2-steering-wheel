@@ -7,6 +7,8 @@
 #include "IOManagement.h"
 
 #define CAN_QUEUE_PERIOD     50
+//Globla BMS for fault indication, set to true if BPS fault is detected
+extern bool bps_fault;
 
 class CANSteering : public ESP32CANManager {
     public:

@@ -10,6 +10,25 @@
 
 // JPEG decoder library
 #include <JPEGDecoder.h>
+extern TFT_eSPI tft;
+void drawFaultBattery(int x, int y, uint16_t color) {
+    int w = 40;     // Battery body width
+    int h = 20;     // Battery body height
+    int tipW = 4;   // The positive terminal nub width
+    int pad = 5;    // Padding so the X doesn't touch the edges
+
+    // 1. Draw the Battery Outline
+    tft.drawRect(x, y, w, h, color);
+    
+    // 2. Draw the Terminal Tip (centered vertically on the right)
+    tft.fillRect(x + w, y + (h/4), tipW, h/2, color);
+    
+    // 3. Draw the 'X' inside the body
+    // Line: Top-Left to Bottom-Right
+    tft.drawLine(x + pad, y + pad, x + w - pad, y + h - pad, color);
+    // Line: Top-Right to Bottom-Left
+    tft.drawLine(x + w - pad, y + pad, x + pad, y + h - pad, color);
+}
 
 // Frame file pattern - will use: /bsr/frame0.bin, /bsr/frame1.bin, etc.
 const char* FRAME_FILE_PATTERN = "/output_frames/frame%d.bin";
@@ -29,6 +48,24 @@ uint8_t *frameHeap = NULL;
 
 //Array of random colors to cycle through
 uint16_t colors[] = {TFT_RED, TFT_GREEN, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_MAGENTA};
+
+void drawBatteryFault(bool active){
+static bool lastState = false; 
+    int posX = 43;
+    int posY = 20;
+
+    if (active != lastState) {
+        if (active) {
+            // Draw the Error Battery in Red
+            drawFaultBattery(posX, posY, TFT_RED);
+        } else {
+            // Wipe the area with Black if the fault is cleared
+            // We clear 45 pixels width to include the battery tip
+            tft.fillRect(posX, posY, 45, 21, TFT_BLACK);
+        }
+        lastState = active;
+    }
+}
 
 void rotateColors() {
   static uint8_t colorIndex = 0;

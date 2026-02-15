@@ -7,6 +7,7 @@ float stuff = 0.0;
 float speedsig = 0.0;
 
 bool send_success;
+bool bps_fault = false;
 CANSteering::CANSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue, uint16_t frequency) : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {};
 int CANSteering::getVehicleSpeed() {
     // Placeholder implementation
@@ -15,6 +16,7 @@ int CANSteering::getVehicleSpeed() {
 }
 
 void CANSteering::readHandler(CanFrame msg) {
+    Serial.printf("CAN Message Received - ID: 0x%03X, DLC: %d\n", msg.identifier, msg.data_length_code);
     switch (msg.identifier){
         case 0x200:{
             stuff = *((float*)msg.data);
@@ -23,6 +25,15 @@ void CANSteering::readHandler(CanFrame msg) {
 
         case 0x201:{
             speedsig = *((float*)msg.data);
+            break;
+        }
+        case 0x100:{
+            uint16_t failsafe_flags = 
+                (msg.data[0] |
+                (msg.data[1] << 8));
+
+            bps_fault = (failsafe_flags & 0x01) != 0; // Check if the least significant bit is set for BPS fault
+
             break;
         }
         default:
