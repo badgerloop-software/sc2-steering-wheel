@@ -7,19 +7,20 @@ void drawLapTelemetry() {
     if (millis() - lastDraw < 500) return;
     lastDraw = millis();
 
-    tft.fillRect(0, 180, tft.width(), 60, TFT_BLACK);
+    Serial.println("Drawing lap telemetry...");
+
+    tft.fillRect(0, 0, tft.width(), 60, TFT_BLACK);
 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-
-    tft.setCursor(10, 190);
+    tft.setCursor(10, 10);
     tft.print("Lap: "); 
     tft.println(lap_count);
 
-    tft.setCursor(10, 210);
+    tft.setCursor(10, 30);
     tft.print("Section: "); 
     tft.println(current_section);
 
-    tft.setCursor(10, 230);
+    tft.setCursor(10, 50);
     tft.print("Duration: "); 
     tft.println(lap_duration);
 }

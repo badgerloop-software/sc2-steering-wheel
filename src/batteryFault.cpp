@@ -8,8 +8,10 @@ void drawBatteryFault() {
     if (millis() - lastDraw < 500) return;
     lastDraw = millis();
 
+    Serial.println("Drawing battery fault...");
+
     int x = tft.width() - 80;
-    int y = 10;
+    int y = tft.height() - 40;
 
     // Clear region
     tft.fillRect(x - 5, y - 5, 70, 40, TFT_BLACK);

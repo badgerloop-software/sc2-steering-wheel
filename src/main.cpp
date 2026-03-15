@@ -22,17 +22,23 @@ volatile int32_t current_section = 0;
 volatile uint32_t lap_duration = 0;
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
+    Serial.println("Setup started...");
     initIO();
-
+    Serial.println("After initIO");
     begin();
+    Serial.println("After begin");
     initSpeedometer();
+    Serial.println("After initSpeedometer");
 }
 
 void loop() {
+    Serial.println("Loop started...");
     canSteering.sendSteeringData();
+    Serial.println("After sendSteeringData");
 
     canSteering.runQueue(CAN_QUEUE_PERIOD);
+    Serial.println("After runQueue");
 
     float speed = speedsig;
 
