@@ -1,8 +1,8 @@
 #include "IOManagement.h"
 
-volatile Digital_Data digital_data;
-volatile float regen_brake;
-volatile float throttle;
+volatile Digital_Data digital_data = {false, false, false, false, false, false, false, false};
+volatile float regen_brake =0.0f;
+volatile float throttle = 0.0f;
 volatile uint16_t number_reads = 0;
 volatile bool hazards = 0;
 volatile uint8_t drive_mode = 0;

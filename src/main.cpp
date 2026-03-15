@@ -4,6 +4,8 @@
 #include "display.h"
 #include "pointer.h"
 #include "speedometer.h"
+#include "batteryFault.h"
+#include "drawLapTelemetry.h"
 
 #define CAN_TX		21
 #define CAN_RX		22
@@ -14,18 +16,29 @@ extern bool send_success;
 extern float stuff;
 extern float speedsig;
 
-void setup() {
-    Serial.begin(115200);
-    initIO();
+volatile uint32_t last_lap_update_ms = 0;
+volatile int32_t lap_count = 0;
+volatile int32_t current_section = 0;
+volatile uint32_t lap_duration = 0;
 
+void setup() {
+    Serial.begin(9600);
+    Serial.println("Setup started...");
+    initIO();
+    Serial.println("After initIO");
     begin();
+    Serial.println("After begin");
     initSpeedometer();
+    Serial.println("After initSpeedometer");
 }
 
 void loop() {
+    Serial.println("Loop started...");
     canSteering.sendSteeringData();
+    Serial.println("After sendSteeringData");
 
     canSteering.runQueue(CAN_QUEUE_PERIOD);
+    Serial.println("After runQueue");
 
     float speed = speedsig;
 
@@ -33,6 +46,10 @@ void loop() {
 
     
     updatePointer(speed);
+
+    drawBatteryFault();
+
+    drawLapTelemetry();
 
 
     printf("\033[2J"); // clears the screen
