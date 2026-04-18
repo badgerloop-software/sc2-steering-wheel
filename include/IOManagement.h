@@ -4,16 +4,16 @@
 #include <Arduino.h>
 
 // Macros for pins
-#define REGEN_BRAKE_PIN             36
-#define HEADLIGHT_PIN               39
+#define REGEN_BRAKE_PIN             35 
+#define HEADLIGHT_PIN               16
 #define LEFT_BLINK_PIN              34
-#define RIGHT_BLINK_PIN             35
+#define RIGHT_BLINK_PIN             5
 #define DIRECTION_SWITCH_PIN        32
 #define HORN_PIN                    33
 #define CRZ_MODE_A_PIN              25
 #define CRZ_SET_PIN                 26
 #define CRZ_RESET_PIN               27
-#define THROTTLE_PIN               13
+#define THROTTLE_PIN               12
 #define HAZARDS_PIN                14
 #define DRIVE_MODE_PIN              4
 
@@ -32,6 +32,7 @@ struct Digital_Data {
 
 extern volatile Digital_Data digital_data;
 extern volatile float regen_brake;
+extern volatile uint8_t regen_brake_percent;
 extern volatile float throttle;
 extern volatile bool hazards;
 extern volatile uint8_t drive_mode;
@@ -40,7 +41,10 @@ extern volatile uint16_t number_reads;
 // initialize digital and analog pins, and timer to read pins
 void initIO();
 
-// ISR to read digital and analog inputs
+// ISR callback that only schedules an IO read
 void IRAM_ATTR readIO();
+
+// Call frequently from loop() to perform pending IO reads.
+void updateIO();
 
 #endif

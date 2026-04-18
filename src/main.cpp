@@ -2,8 +2,6 @@
 #include "canSteering.h"
 #include "IOManagement.h"
 #include "display.h"
-#include "pointer.h"
-#include "speedometer.h"
 
 #define CAN_TX		21
 #define CAN_RX		22
@@ -11,43 +9,44 @@
 CANSteering canSteering(CAN_TX, CAN_RX, 10, 10, 250);
 extern bool send_success;
 
-extern float stuff;
 extern float speedsig;
+static const uint32_t SERIAL_PRINT_INTERVAL_MS = 1000;
+static uint32_t lastSerialPrintMs = 0;
 
 void setup() {
     Serial.begin(115200);
     initIO();
-
-    begin();
-    initSpeedometer();
+    initDisplay(false);
 }
 
 void loop() {
+    updateIO();
+
     canSteering.sendSteeringData();
 
     canSteering.runQueue(CAN_QUEUE_PERIOD);
 
     float speed = speedsig;
 
-    Serial.printf("Speed: %.2f\n", speed);
+    renderMinimalDisplay(speed);
 
-    
-    updatePointer(speed);
+    uint32_t now = millis();
+    if (now - lastSerialPrintMs >= SERIAL_PRINT_INTERVAL_MS) {
+        Serial.println();
+        Serial.println("--- Steering Input Telemetry ---");
+        Serial.printf("speed: %.2f\n", speed);
+        Serial.printf("regen_raw: %.0f regen_v: %.3f\n", regen_brake, 3.3f * regen_brake / 4095.0f);
+        Serial.printf("accel_raw: %.0f\n", throttle);
+        Serial.printf("headlight: %d left_blink: %d right_blink: %d hazards: %d\n",
+                      digital_data.headlight, digital_data.left_blink, digital_data.right_blink, hazards);
+        Serial.printf("direction_switch: %d horn: %d drive_mode: %d\n",
+                      digital_data.direction_switch, digital_data.horn, drive_mode);
+        Serial.printf("crz_mode_a: %d crz_set: %d crz_reset: %d\n",
+                      digital_data.crz_mode_a, digital_data.crz_set, digital_data.crz_reset);
+        Serial.printf("send_success: %d number_reads: %u\n", send_success, number_reads);
+        Serial.printf("can_messages_read: %lu can_last_id: 0x%03X can_last_dlc: %u\n",
+                      can_messages_read, can_last_id, can_last_dlc);
 
-
-    printf("\033[2J"); // clears the screen
-    printf("regen brake: %f\n", 3.3 * regen_brake / 4095);
-    printf("send_success: %d\n", send_success);
-    printf("headlight: %d\n", digital_data.headlight);
-    printf("left blink: %d\n", digital_data.left_blink);
-    printf("right_blink: %d\n", digital_data.right_blink);
-    printf("direction_switch: %d\n", digital_data.direction_switch);
-    printf("horn: %d\n", digital_data.horn);
-    printf("crzmodea: %d\n", digital_data.crz_mode_a);
-    printf("crz_set: %d\n", digital_data.crz_set);
-    printf("crz_reset: %d\n", digital_data.crz_reset);
-    printf("throttle: %d\n", throttle);
-    printf("hazards: %d\n", hazards);
-    printf("drive_mode: %d\n", drive_mode);
-    printf("number reads: %d\n", number_reads);
+        lastSerialPrintMs = now;
+    }
 }

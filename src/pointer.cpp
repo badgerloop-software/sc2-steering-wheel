@@ -27,8 +27,8 @@ void begin() {
     int screenH = tft.height();
 
     // sets pivot point at bottom left of screen
-    pivotX = screenW / 4; 
-    pivotY = screenH / 4;
+    pivotX = screenW / 2; 
+    pivotY = screenH / 2;
 
     // sets pointer to 0 degrees
     currentTheta = 0.0;
@@ -42,7 +42,7 @@ void updatePointerAngle(double theta) {
     erasePointer();                                             // erases old point
     currentTheta = theta;                                       // sets new degree to input
 
-    int newX =  pivotX + length * cos(theta * DEG_TO_RAD);      // calculates new x endpoint
+    int newX =  pivotX - length * cos(theta * DEG_TO_RAD);      // calculates new x endpoint
     int newY = pivotY + length * sin(theta * DEG_TO_RAD);       // calculates new y endpoint
 
     tft.drawLine(pivotX, pivotY, newX, newY, POINTER_COLOR);    // draws new line
@@ -55,6 +55,6 @@ void updatePointer(int speed) {
     if (speed > MAX_SPEED) speed = MAX_SPEED;
 
     // converts to degrees and calls angle method
-    double theta = 180.0 * speed / MAX_SPEED;
+    double theta = 90.0 * speed / MAX_SPEED;
     updatePointerAngle(theta);
 }

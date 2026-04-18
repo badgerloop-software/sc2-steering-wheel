@@ -16,11 +16,11 @@ void initSpeedometer() {
     // Serial.printf("sx: %d\n ", sx);
     // Serial.printf("sy: %d\n ", sy);
    
-    tft.drawSmoothArc(sx, sy, sar, sar, lowAngle, highAngle, SPEED_ARC_COLOR, BG_COLOR, false);
+    tft.drawSmoothArc(sx, sy, sar, sar, 90, 270, SPEED_ARC_COLOR, BG_COLOR, false);
 
     // Adds a tick mark every 20 degrees, 15 pixels long
     // Also adds one in between each 20 degree segment, 10 pixels long 
-    for (int i = 0; i <= 180; i += 20) {
+    for (int i = 180; i <= 360; i += 20) {
         float radian = radians(i);
         tft.drawLine(sx + sar * cos(radian), 
                      sy + sar * sin(radian), 
@@ -28,13 +28,13 @@ void initSpeedometer() {
                      sy + (sar - 15) * sin(radian), 
                      SPEED_ARC_COLOR);
         radian = radians(i + 10);
-        if (i >= 180){
-            break;
+       if (i < 360) {
+            radian = radians(i + 10);
+            tft.drawLine(sx + sar * cos(radian), 
+                            sy + sar * sin(radian), 
+                            sx + (sar - 10) * cos(radian), 
+                            sy + (sar - 10) * sin(radian), 
+                            SPEED_ARC_COLOR); 
         }
-        tft.drawLine(sx + sar * cos(radian), 
-                        sy + sar * sin(radian), 
-                        sx + (sar - 10) * cos(radian), 
-                        sy + (sar - 10) * sin(radian), 
-                        SPEED_ARC_COLOR); 
     }
 }
