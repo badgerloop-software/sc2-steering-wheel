@@ -1,6 +1,7 @@
 #include "canSteering.h"
 
 #define MAX_ANALOG_VALUE 4095
+static const uint32_t CAN_SEND_TIMEOUT_MS = 10;
 
 float stuff = 0.0;
 float speedsig = 0.0;
@@ -44,9 +45,19 @@ void CANSteering::readHandler(CanFrame msg) {
 void CANSteering::sendSteeringData() {
     send_success = true;
     float regen_brake_calculation = 3.3 * regen_brake / MAX_ANALOG_VALUE;
-    send_success &= this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data));
-    send_success &= this->sendMessage(0x301, (void*)&regen_brake_calculation, sizeof(float));
-    send_success &= this->sendMessage(0x302, (void*)&throttle, sizeof(uint16_t));
-    send_success &= this->sendMessage(0x303, (void*)&drive_mode, sizeof(uint8_t));
-    send_success &= this->sendMessage(0x304, (void*)&hazards, sizeof(bool));
+
+    bool tx_ok = this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data), CAN_SEND_TIMEOUT_MS);
+    send_success &= tx_ok;
+
+    tx_ok = this->sendMessage(0x301, (void*)&regen_brake_calculation, sizeof(float), CAN_SEND_TIMEOUT_MS);
+    send_success &= tx_ok;
+
+    tx_ok = this->sendMessage(0x302, (void*)&throttle, sizeof(uint16_t), CAN_SEND_TIMEOUT_MS);
+    send_success &= tx_ok;
+
+    tx_ok = this->sendMessage(0x303, (void*)&drive_mode, sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);
+    send_success &= tx_ok;
+
+    tx_ok = this->sendMessage(0x304, (void*)&hazards, sizeof(bool), CAN_SEND_TIMEOUT_MS);
+    send_success &= tx_ok;
 }

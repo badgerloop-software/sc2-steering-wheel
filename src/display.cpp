@@ -17,9 +17,9 @@ void rotateColors() {
 
 void initDisplay(bool SD_enable){
     // Set all chip selects high to avoid bus contention during initialisation of each peripheral
-    digitalWrite(22, HIGH); // Touch controller chip select (if used)
+    // digitalWrite(22, HIGH); // Touch controller chip select (if used)
     digitalWrite(15, HIGH); // TFT screen chip select
-    digitalWrite( 5, HIGH); // SD card chips select, must use GPIO 5 (ESP32 SS)
+    // digitalWrite( 5, HIGH); // SD card chips select, must use GPIO 5 (ESP32 SS)
 
     tft.begin();
     tft.setRotation(1);  // Somehow important to have an odd rotation number
@@ -213,13 +213,25 @@ void renderMinimalDisplay(float speed) {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextSize(7);
   tft.setCursor(10, 60);
+  char odoBuffer[8];
+  snprintf(odoBuffer, sizeof(odoBuffer), "%d", speedValue);
+  tft.print(odoBuffer);
+
+  tft.setTextSize(2);
+  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  tft.setCursor(12, 120);
+  tft.print("MPH");
+
   char speedBuffer[8];
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextSize(7);
+  tft.setCursor((tft.width()/2) - (tft.textWidth(speedBuffer)/2), 60);
   snprintf(speedBuffer, sizeof(speedBuffer), "%d", speedValue);
   tft.print(speedBuffer);
 
   tft.setTextSize(2);
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.setCursor(12, 120);
+  tft.setCursor((tft.width() - tft.textWidth("MPH"))/2, 120);
   tft.print("MPH");
 
   drawAccelBar(360, 58, 88, 170, accelPercent);
