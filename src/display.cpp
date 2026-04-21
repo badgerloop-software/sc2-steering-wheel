@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "display.h"
 #include "IOManagement.h"
+#include "odometer.h"
 
 #include <math.h>
 
@@ -125,6 +126,7 @@ void renderMinimalDisplay(float speed) {
   static bool lastCruiseReset = false;
   static uint8_t lastDriveMode = 255;
   static bool lastDirectionSwitch = false;
+  static uint32_t lastOdo = 0xFFFFFFFF;
 
   int speedValue = (int)lroundf(speed);
   if (speedValue < 0) {
@@ -161,6 +163,7 @@ void renderMinimalDisplay(float speed) {
   bool cruiseReset = digital_data.crz_reset;
   uint8_t currentDriveMode = drive_mode;
   bool directionSwitch = digital_data.direction_switch;
+  uint32_t currentOdo = getOdometerMiles();
 
   bool screenNeedsUpdate = !hasPreviousFrame ||
                            speedValue != lastSpeedValue ||
@@ -174,7 +177,8 @@ void renderMinimalDisplay(float speed) {
                            cruiseSet != lastCruiseSet ||
                            cruiseReset != lastCruiseReset ||
                            currentDriveMode != lastDriveMode ||
-                           directionSwitch != lastDirectionSwitch;
+                           directionSwitch != lastDirectionSwitch ||
+                           currentOdo != lastOdo;
 
   if (!screenNeedsUpdate) {
     return;
@@ -192,6 +196,7 @@ void renderMinimalDisplay(float speed) {
   lastCruiseReset = cruiseReset;
   lastDriveMode = currentDriveMode;
   lastDirectionSwitch = directionSwitch;
+  lastOdo = currentOdo;
 
   const char *modeText = currentDriveMode ? "PWR" : "ECO";
   const char *directionText = directionSwitch ? "REV" : "FWD";
@@ -210,22 +215,22 @@ void renderMinimalDisplay(float speed) {
   drawStatusPill(220, 6, 82, 28, directionText, directionSwitch, TFT_CYAN);
   drawStatusPill(312, 6, 82, 28, "CRZ", cruiseMode || cruiseSet || cruiseReset, TFT_YELLOW);
 
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextSize(7);
-  tft.setCursor(10, 60);
   char odoBuffer[8];
-  snprintf(odoBuffer, sizeof(odoBuffer), "%d", speedValue);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextSize(3);
+  tft.setCursor(10, 90);
+  snprintf(odoBuffer, sizeof(odoBuffer), "%lu", (unsigned long)currentOdo);
   tft.print(odoBuffer);
 
   tft.setTextSize(2);
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
   tft.setCursor(12, 120);
-  tft.print("MPH");
+  tft.print("ODO");
 
   char speedBuffer[8];
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextSize(7);
-  tft.setCursor((tft.width()/2) - (tft.textWidth(speedBuffer)/2), 60);
+  tft.setCursor(220, 60);
   snprintf(speedBuffer, sizeof(speedBuffer), "%d", speedValue);
   tft.print(speedBuffer);
 

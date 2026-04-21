@@ -81,14 +81,10 @@ void initIO() {
     pinMode(HAZARDS_PIN, INPUT);
     pinMode(DRIVE_MODE_PIN, INPUT);
 
-    // Initialize timer for reading inputs
-    io_timer = timerBegin(0,  // which timer (choose between 0 and 3)
-                            80, // prescaler
-                            true // counts up
-    );
-    timerAttachInterrupt(io_timer, &readIO, true);
-    timerAlarmWrite(io_timer, IO_UPDATE_PERIOD, true);
-    timerAlarmEnable(io_timer); // start the timer
+    // Initialize timer at 1 MHz (equivalent to prescaler 80 on 80 MHz clock), firing every 10 ms
+    io_timer = timerBegin(1000000);         // 1 MHz tick frequency
+    timerAttachInterrupt(io_timer, &readIO);
+    timerAlarm(io_timer, 1000, true, 0);    // 1,000 ticks @ 1 MHz = 1 ms, auto-reload
 
     // Seed inputs once at startup so values are valid before first timer tick.
     sampleIO();
