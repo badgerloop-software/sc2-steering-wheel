@@ -2,6 +2,7 @@
 #include "canSteering.h"
 #include "IOManagement.h"
 #include "display.h"
+#include "odometer.h"
 
 #define CAN_TX		21
 #define CAN_RX		22
@@ -11,11 +12,13 @@ CANSteering* canSteering = nullptr;
 extern float speedsig;
 static const uint32_t CAN_SEND_INTERVAL_MS = 20;
 static uint32_t lastCanSendMs = 0;
+static uint32_t lastLoopMs = 0;
 
 void setup() {
     Serial.begin(115200);
     initIO();
     initDisplay(false);
+    initOdometer();
 
     static CANSteering canSteeringInstance(CAN_TX, CAN_RX, 10, 10, 250);
     canSteering = &canSteeringInstance;
@@ -28,6 +31,10 @@ void loop() {
 
     updateIO();
 
+    uint32_t nowLoop = millis();
+    uint32_t deltaMs = nowLoop - lastLoopMs;
+    lastLoopMs = nowLoop;
+
     uint32_t now = millis();
     if (now - lastCanSendMs >= CAN_SEND_INTERVAL_MS) {
         canSteering->sendSteeringData();
@@ -37,6 +44,8 @@ void loop() {
     canSteering->runQueue(CAN_QUEUE_PERIOD);
 
     float speed = speedsig;
+
+    updateOdometer(speed, deltaMs);
 
     renderMinimalDisplay(speed);
 }
