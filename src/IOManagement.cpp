@@ -48,7 +48,16 @@ static void sampleIO() {
     last_regen_button_input = regen_button_input;
 
     regen_brake = (float)((regen_brake_percent * MAX_ANALOG_VALUE) / 100);
-    throttle = analogRead(THROTTLE_PIN);
+    // Calibrate throttle: map 500-2200 ADC range to 0-4095 output
+    uint16_t throttle_raw = analogRead(THROTTLE_PIN);
+    throttle = max(0.0f, min(4095.0f, (throttle_raw - 500.0f) / 1700.0f * 4095.0f));
+
+    // Print local throttle reading (raw ADC and voltage)
+    {
+        uint16_t throttle_raw = (uint16_t)throttle;
+        float throttle_voltage = 3.3f * (float)throttle_raw / 4095.0f;
+        Serial.printf("Local throttle: raw=%u voltage=%.3fV\n", throttle_raw, throttle_voltage);
+    }
 
     // Read digital inputs
     bool headlight_input = digitalRead(HEADLIGHT_PIN);

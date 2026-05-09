@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "canSteering.h"
 
 #define MAX_ANALOG_VALUE 4095
@@ -35,6 +36,27 @@ void CANSteering::readHandler(CanFrame msg) {
             }
             break;
         }
+            case 0x302: {
+                if (msg.data_length_code >= sizeof(uint16_t)) {
+                    uint16_t throttle_raw = 0;
+                    memcpy(&throttle_raw, msg.data, sizeof(uint16_t));
+
+                    const uint16_t ADC_MIN = 869;   // ~0.7V at rest
+                    const uint16_t ADC_MAX = 3228;  // ~2.6V at full press
+
+                    float acc_in = 0.0f;
+                    if (throttle_raw <= ADC_MIN) {
+                        acc_in = 0.0f;
+                    } else if (throttle_raw >= ADC_MAX) {
+                        acc_in = 1.0f;
+                    } else {
+                        acc_in = (float)(throttle_raw - ADC_MIN) / (float)(ADC_MAX - ADC_MIN);
+                    }
+
+                    Serial.printf("CAN 0x302: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
+                }
+                break;
+            }
         default:
             break;
     }
@@ -44,15 +66,31 @@ void CANSteering::readHandler(CanFrame msg) {
 
 void CANSteering::sendSteeringData() {
     send_success = true;
-    float regen_brake_calculation = 3.3 * regen_brake / MAX_ANALOG_VALUE;
+    float regen_brake_normalized = (float)regen_brake_percent / 100.0f;
+    uint16_t throttle_raw = (throttle < 0.0f) ? 0U : (throttle > (float)MAX_ANALOG_VALUE ? MAX_ANALOG_VALUE : (uint16_t)throttle);
+    uint8_t digital_payload = 0;
 
-    bool tx_ok = this->sendMessage(0x300, (void*)&digital_data, sizeof(digital_data), CAN_SEND_TIMEOUT_MS);
+    digital_payload |= (digital_data.headlight ? 1U : 0U) << 0;
+    digital_payload |= (digital_data.left_blink ? 1U : 0U) << 1;
+    digital_payload |= (digital_data.right_blink ? 1U : 0U) << 2;
+    digital_payload |= (digital_data.direction_switch ? 1U : 0U) << 3;
+    digital_payload |= (digital_data.horn ? 1U : 0U) << 4;
+    digital_payload |= (digital_data.crz_mode_a ? 1U : 0U) << 5;
+    digital_payload |= (digital_data.crz_set ? 1U : 0U) << 6;
+    digital_payload |= (digital_data.crz_reset ? 1U : 0U) << 7;
+
+    bool tx_ok = this->sendMessage(0x300, (void*)&digital_payload, sizeof(digital_payload), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(0x301, (void*)&regen_brake_calculation, sizeof(float), CAN_SEND_TIMEOUT_MS);
+    tx_ok = this->sendMessage(0x301, (void*)&regen_brake_normalized, sizeof(float), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(0x302, (void*)&throttle, sizeof(uint16_t), CAN_SEND_TIMEOUT_MS);
+    tx_ok = this->sendMessage(0x302, (void*)&throttle_raw, sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
+    if (!tx_ok) {
+        Serial.printf("Failed to send CAN 0x302: raw=%u\n", throttle_raw);
+    } else {
+        Serial.printf("Sent CAN 0x302: raw=%u\n", throttle_raw);
+    }
     send_success &= tx_ok;
 
     tx_ok = this->sendMessage(0x303, (void*)&drive_mode, sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);
