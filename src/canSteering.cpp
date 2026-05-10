@@ -31,6 +31,11 @@ void CANSteering::readHandler(CanFrame msg) {
         }
 
         case 0x201:{
+            // 0x201 is regen_brake from PCD — not used on display currently
+            break;
+        }
+        case 0x208:{
+            // mph from PCD (matches canPDC.cpp sendMessage(0x208, &mph, ...))
             if (msg.data_length_code >= sizeof(float)) {
                 memcpy(&speedsig, msg.data, sizeof(float));
             }
