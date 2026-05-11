@@ -58,7 +58,9 @@ void CANSteering::readHandler(CanFrame msg) {
                         acc_in = (float)(throttle_raw - ADC_MIN) / (float)(ADC_MAX - ADC_MIN);
                     }
 
+#ifdef DEBUG_PRINTS
                     Serial.printf("CAN 0x302: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
+#endif
                 }
                 break;
             }
@@ -91,11 +93,13 @@ void CANSteering::sendSteeringData() {
     send_success &= tx_ok;
 
     tx_ok = this->sendMessage(0x302, (void*)&throttle_raw, sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
+#ifdef DEBUG_PRINTS
     if (!tx_ok) {
         Serial.printf("Failed to send CAN 0x302: raw=%u\n", throttle_raw);
     } else {
         Serial.printf("Sent CAN 0x302: raw=%u\n", throttle_raw);
     }
+#endif
     send_success &= tx_ok;
 
     tx_ok = this->sendMessage(0x303, (void*)&drive_mode, sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);

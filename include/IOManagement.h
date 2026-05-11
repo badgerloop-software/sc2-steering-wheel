@@ -3,31 +3,35 @@
 
 #include <Arduino.h>
 
+// Uncomment to enable Serial debug prints. Comment out for production
+// to save CPU cycles and reduce latency.
+// #define DEBUG_PRINTS
+
 // Macros for pins
-#define REGEN_BRAKE_PIN             35 
-#define HEADLIGHT_PIN               16
-#define LEFT_BLINK_PIN              34
-#define RIGHT_BLINK_PIN             5
-#define DIRECTION_SWITCH_PIN        32
-#define HORN_PIN                    33
-#define CRZ_MODE_A_PIN              25
-#define CRZ_SET_PIN                 26
-#define CRZ_RESET_PIN               27
-#define THROTTLE_PIN               12
-#define HAZARDS_PIN                14
-#define DRIVE_MODE_PIN              4
+#define REGEN_BRAKE_PIN 35
+#define HEADLIGHT_PIN 16
+#define LEFT_BLINK_PIN 34
+#define RIGHT_BLINK_PIN 5
+#define DIRECTION_SWITCH_PIN 32
+#define HORN_PIN 33
+#define CRZ_MODE_A_PIN 25
+#define CRZ_SET_PIN 26
+#define CRZ_RESET_PIN 27
+#define THROTTLE_PIN 12
+#define HAZARDS_PIN 14
+#define DRIVE_MODE_PIN 4
 
 #define IO_UPDATE_PERIOD 100000 // us
 
 struct Digital_Data {
-    bool headlight : 1;             // input
-    bool left_blink : 1;            // input
-    bool right_blink : 1;           // input
-    bool direction_switch : 1;      // input
-    bool horn : 1;                  // input
-    bool crz_mode_a : 1;            // input
-    bool crz_set : 1;               // input
-    bool crz_reset : 1;             // input
+  bool headlight : 1;        // input
+  bool left_blink : 1;       // input
+  bool right_blink : 1;      // input
+  bool direction_switch : 1; // input
+  bool horn : 1;             // input
+  bool crz_mode_a : 1;       // input
+  bool crz_set : 1;          // input
+  bool crz_reset : 1;        // input
 };
 
 extern volatile Digital_Data digital_data;

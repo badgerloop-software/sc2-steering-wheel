@@ -28,21 +28,28 @@ void initDisplay(bool SD_enable){
     tft.fillScreen(TFT_BLACK);
 
     if (!SD_enable) {
+#ifdef DEBUG_PRINTS
       Serial.println("Display initialized without SD card.");
+#endif
       return;
     }
 
     if (!SD.begin(5, tft.getSPIinstance())) {
+#ifdef DEBUG_PRINTS
       Serial.println("Card Mount Failed");
+#endif
       return;
     }
     uint8_t cardType = SD.cardType();
   
     if (cardType == CARD_NONE) {
+#ifdef DEBUG_PRINTS
       Serial.println("No SD card attached");
+#endif
       return;
     }
   
+#ifdef DEBUG_PRINTS
     Serial.print("SD Card Type: ");
     if (cardType == CARD_MMC) {
       Serial.println("MMC");
@@ -53,6 +60,7 @@ void initDisplay(bool SD_enable){
     } else {
       Serial.println("UNKNOWN");
     }
+#endif
 
     // // Check if frame files need to be created from text
     // bool needsConversion = false;
@@ -71,12 +79,16 @@ void initDisplay(bool SD_enable){
     // }
   
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+#ifdef DEBUG_PRINTS
     Serial.printf("SD Card Size: %lluMB\n", cardSize);
+#endif
   
     // countAvailableFrames();
     // Serial.printf("Total frames available: %d\n", totalFrames);
 
+#ifdef DEBUG_PRINTS
     Serial.println("Initialization done.");
+#endif
 }
 
 static void drawBoolLabel(int x, int y, const char *label, bool value) {

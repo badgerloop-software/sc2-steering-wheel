@@ -56,7 +56,9 @@ static void sampleIO() {
     {
         uint16_t throttle_raw = (uint16_t)throttle;
         float throttle_voltage = 3.3f * (float)throttle_raw / 4095.0f;
+#ifdef DEBUG_PRINTS
         Serial.printf("Local throttle: raw=%u voltage=%.3fV\n", throttle_raw, throttle_voltage);
+#endif
     }
 
     // Read digital inputs
@@ -90,10 +92,11 @@ void initIO() {
     pinMode(HAZARDS_PIN, INPUT);
     pinMode(DRIVE_MODE_PIN, INPUT);
 
-    // Initialize timer at 1 MHz (equivalent to prescaler 80 on 80 MHz clock), firing every 10 ms
-    io_timer = timerBegin(1000000);         // 1 MHz tick frequency
-    timerAttachInterrupt(io_timer, &readIO);
-    timerAlarm(io_timer, 1000, true, 0);    // 1,000 ticks @ 1 MHz = 1 ms, auto-reload
+    // Initialize timer 0 with prescaler 80 (80 MHz / 80 = 1 MHz tick), counting up
+    io_timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(io_timer, &readIO, true);
+    timerAlarmWrite(io_timer, 1000, true);  // 1,000 ticks @ 1 MHz = 1 ms, auto-reload
+    timerAlarmEnable(io_timer);
 
     // Seed inputs once at startup so values are valid before first timer tick.
     sampleIO();

@@ -34,7 +34,9 @@ void begin() {
     currentTheta = 0.0;
     updatePointerAngle(0.0);
 
+#ifdef DEBUG_PRINTS
     Serial.println("begin");
+#endif
 }
 
 // updates pointer given an angle in degrees
