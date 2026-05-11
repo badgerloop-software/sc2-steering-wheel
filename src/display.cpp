@@ -1,6 +1,7 @@
 #include "display.h"
 #include "IOManagement.h"
 #include "odometer.h"
+#include "canSteering.h"
 #include <Arduino.h>
 
 #include <math.h>
@@ -128,6 +129,36 @@ static void drawAccelBar(int x, int y, int w, int h, int percent) {
   tft.print("ACCEL");
 }
 
+static void drawBatteryIcon(int x, int y, int socPercent) {
+  // Battery body: 30w x 16h, with a 4x8 terminal nub on the right
+  const int bw = 30;
+  const int bh = 16;
+  const int nubW = 4;
+  const int nubH = 8;
+
+  // Choose fill color based on SOC level
+  uint16_t fillColor;
+  if (socPercent > 50) {
+    fillColor = TFT_GREEN;
+  } else if (socPercent > 20) {
+    fillColor = TFT_YELLOW;
+  } else {
+    fillColor = TFT_RED;
+  }
+
+  // Draw body outline
+  tft.drawRect(x, y, bw, bh, TFT_WHITE);
+  // Draw terminal nub
+  tft.fillRect(x + bw, y + (bh - nubH) / 2, nubW, nubH, TFT_WHITE);
+
+  // Clear interior then fill proportionally
+  tft.fillRect(x + 2, y + 2, bw - 4, bh - 4, TFT_BLACK);
+  int fillW = ((bw - 4) * socPercent) / 100;
+  if (fillW > 0) {
+    tft.fillRect(x + 2, y + 2, fillW, bh - 4, fillColor);
+  }
+}
+
 void renderMinimalDisplay(float speed) {
   static bool hasPreviousFrame = false;
   static int lastSpeedValue = -1;
@@ -143,6 +174,7 @@ void renderMinimalDisplay(float speed) {
   static uint8_t lastDriveMode = 255;
   static bool lastDirectionSwitch = false;
   static uint32_t lastOdo = 0xFFFFFFFF;
+  static int lastBatterySoc = -1;
 
   int speedValue = (int)lroundf(speed);
   if (speedValue < 0) {
@@ -182,6 +214,10 @@ void renderMinimalDisplay(float speed) {
   bool directionSwitch = digital_data.direction_switch;
   uint32_t currentOdo = getOdometerTenths();
 
+  int currentBatterySoc = (int)lroundf(battery_soc);
+  if (currentBatterySoc < 0) currentBatterySoc = 0;
+  if (currentBatterySoc > 100) currentBatterySoc = 100;
+
   bool screenNeedsUpdate =
       !hasPreviousFrame || speedValue != lastSpeedValue ||
       accelPercent != lastAccelPercent || regenPercent != lastRegenPercent ||
@@ -189,7 +225,8 @@ void renderMinimalDisplay(float speed) {
       rightBlink != lastRightBlink || hazardState != lastHazards ||
       cruiseMode != lastCruiseMode || cruiseSet != lastCruiseSet ||
       cruiseReset != lastCruiseReset || currentDriveMode != lastDriveMode ||
-      directionSwitch != lastDirectionSwitch || currentOdo != lastOdo;
+      directionSwitch != lastDirectionSwitch || currentOdo != lastOdo ||
+      currentBatterySoc != lastBatterySoc;
 
   if (!screenNeedsUpdate) {
     return;
@@ -208,6 +245,7 @@ void renderMinimalDisplay(float speed) {
   lastDriveMode = currentDriveMode;
   lastDirectionSwitch = directionSwitch;
   lastOdo = currentOdo;
+  lastBatterySoc = currentBatterySoc;
 
   const char *modeText = currentDriveMode ? "PWR" : "ECO";
   const char *directionText = directionSwitch ? "REV" : "FWD";
@@ -227,6 +265,15 @@ void renderMinimalDisplay(float speed) {
   drawStatusPill(220, 6, 82, 28, directionText, directionSwitch, TFT_CYAN);
   drawStatusPill(312, 6, 82, 28, "CRZ", cruiseMode || cruiseSet || cruiseReset,
                  TFT_YELLOW);
+
+  // ---- Battery SOC icon + percentage (top-right area) ----
+  drawBatteryIcon(406, 10, currentBatterySoc);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(444, 13);
+  char socBuf[8];
+  snprintf(socBuf, sizeof(socBuf), "%d%%", currentBatterySoc);
+  tft.print(socBuf);
 
   char odoBuffer[16];
   tft.setTextColor(TFT_WHITE, TFT_BLACK);

@@ -18,5 +18,6 @@ extern volatile uint32_t can_messages_read;
 extern volatile uint16_t can_last_id;
 extern volatile uint8_t can_last_dlc;
 extern volatile bool battery_fault_active;
+extern volatile float battery_soc;
 
 #endif
