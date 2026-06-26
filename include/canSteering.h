@@ -6,6 +6,11 @@
 #include "IOManagement.h"
 
 #define CAN_QUEUE_PERIOD     50
+#define BLINK_DELAY_MS       400
+
+inline bool getBlinkPhase() {
+    return ((millis() / BLINK_DELAY_MS) % 2) != 0;
+}
 
 class CANSteering : public ESP32CANManager {
     public:

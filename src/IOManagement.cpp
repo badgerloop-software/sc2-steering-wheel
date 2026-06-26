@@ -7,8 +7,8 @@ volatile float throttle;
 volatile uint16_t number_reads = 0;
 volatile bool hazards = 0;
 volatile uint8_t drive_mode = 0;
-hw_timer_t *io_timer = NULL;
-volatile bool io_read_pending = false;
+portMUX_TYPE stateMux = portMUX_INITIALIZER_UNLOCKED;
+
 static bool headlight_state = false;
 static bool last_headlight_input = false;
 static bool left_blink_state = false;
@@ -25,7 +25,6 @@ static bool drive_mode_state = false;
 static bool last_drive_mode_input = false;
 static bool last_regen_button_input = false;
 
-static const uint8_t REGEN_STEP_PERCENT = 5;
 static const uint16_t MAX_ANALOG_VALUE = 4095;
 
 static bool toggleOnPress(bool input, bool &state, bool &last_input) {
@@ -37,45 +36,72 @@ static bool toggleOnPress(bool input, bool &state, bool &last_input) {
     return state;
 }
 
-static void sampleIO() {
-    // Regen is a stepped button: each press increases 5%, wraps from 100% to 0%.
-    bool regen_button_input = digitalRead(REGEN_BRAKE_PIN);
-    if (regen_button_input && !last_regen_button_input) {
-        regen_brake_percent = (regen_brake_percent >= 100)
-                                 ? 0
-                                 : (uint8_t)(regen_brake_percent + REGEN_STEP_PERCENT);
-    }
-    last_regen_button_input = regen_button_input;
+void sampleIO() {
+    // 1. Read all pins into local variables first (outside critical section to minimize interrupt latency)
+    bool local_regen_button = digitalRead(REGEN_BRAKE_PIN);
+    uint16_t local_throttle_raw = analogRead(THROTTLE_PIN);
+    bool local_headlight = digitalRead(HEADLIGHT_PIN);
+    bool local_left_blink = digitalRead(LEFT_BLINK_PIN);
+    bool local_right_blink = digitalRead(RIGHT_BLINK_PIN);
+    bool local_direction_switch = digitalRead(DIRECTION_SWITCH_PIN);
+    bool local_horn = digitalRead(HORN_PIN);
+    bool local_crz_mode_a = digitalRead(CRZ_MODE_A_PIN);
+    bool local_crz_set = digitalRead(CRZ_SET_PIN);
+    bool local_crz_reset = digitalRead(CRZ_RESET_PIN);
+    bool local_hazards = digitalRead(HAZARDS_PIN);
+    bool local_drive_mode = digitalRead(DRIVE_MODE_PIN);
 
-    regen_brake = (float)((regen_brake_percent * MAX_ANALOG_VALUE) / 100);
-    // Calibrate throttle: map 500-2200 ADC range to 0-4095 output
-    uint16_t throttle_raw = analogRead(THROTTLE_PIN);
-    throttle = max(0.0f, min(4095.0f, (throttle_raw - 500.0f) / 1700.0f * 4095.0f));
+    // 2. Perform calibration calculations
+    float pedal_calibrated = max(0.0f, min(4095.0f, (local_throttle_raw - 500.0f) / 1700.0f * 4095.0f));
+
+    float local_regen_brake = 0.0f;
+    uint8_t local_regen_brake_percent = 0;
+    float local_throttle = 0.0f;
+
+    if (local_regen_button) {
+        // While the regen button is pressed, the acceleration pedal acts as a regen brake pedal.
+        local_regen_brake = pedal_calibrated;
+        local_regen_brake_percent = (uint8_t)((pedal_calibrated * 100.0f) / (float)MAX_ANALOG_VALUE + 0.5f);
+        local_throttle = 0.0f;
+    } else {
+        // When released, regen brake is set back to 0.
+        local_regen_brake = 0.0f;
+        local_regen_brake_percent = 0;
+        local_throttle = pedal_calibrated;
+    }
 
     // Print local throttle reading (raw ADC and voltage)
-    {
-        uint16_t throttle_raw = (uint16_t)throttle;
-        float throttle_voltage = 3.3f * (float)throttle_raw / 4095.0f;
 #ifdef DEBUG_PRINTS
-        Serial.printf("Local throttle: raw=%u voltage=%.3fV\n", throttle_raw, throttle_voltage);
-#endif
+    {
+        uint16_t throttle_raw_print = (uint16_t)local_throttle;
+        float throttle_voltage = 3.3f * (float)throttle_raw_print / 4095.0f;
+        Serial.printf("Local throttle: raw=%u voltage=%.3fV\n", throttle_raw_print, throttle_voltage);
     }
+#endif
 
-    // Read digital inputs
-    bool headlight_input = digitalRead(HEADLIGHT_PIN);
-    digital_data.headlight = toggleOnPress(headlight_input, headlight_state, last_headlight_input);
-    digital_data.left_blink = toggleOnPress(digitalRead(LEFT_BLINK_PIN), left_blink_state, last_left_blink_input);
-    digital_data.right_blink = toggleOnPress(digitalRead(RIGHT_BLINK_PIN), right_blink_state, last_right_blink_input);
-    digital_data.direction_switch = toggleOnPress(digitalRead(DIRECTION_SWITCH_PIN), direction_switch_state, last_direction_switch_input);
-    digital_data.horn = digitalRead(HORN_PIN);
-    digital_data.crz_mode_a = toggleOnPress(digitalRead(CRZ_MODE_A_PIN), crz_mode_a_state, last_crz_mode_a_input);
-    digital_data.crz_set = digitalRead(CRZ_SET_PIN);
-    digital_data.crz_reset = digitalRead(CRZ_RESET_PIN);
+    // 3. Write updates to shared volatile state under the spinlock critical section
+    portENTER_CRITICAL(&stateMux);
 
-    hazards = toggleOnPress(digitalRead(HAZARDS_PIN), hazards_state, last_hazards_input);
-    drive_mode = toggleOnPress(digitalRead(DRIVE_MODE_PIN), drive_mode_state, last_drive_mode_input);
+    last_regen_button_input = local_regen_button;
+    regen_brake = local_regen_brake;
+    regen_brake_percent = local_regen_brake_percent;
+    throttle = local_throttle;
+
+    digital_data.headlight = toggleOnPress(local_headlight, headlight_state, last_headlight_input);
+    digital_data.left_blink = toggleOnPress(local_left_blink, left_blink_state, last_left_blink_input);
+    digital_data.right_blink = toggleOnPress(local_right_blink, right_blink_state, last_right_blink_input);
+    digital_data.direction_switch = toggleOnPress(local_direction_switch, direction_switch_state, last_direction_switch_input);
+    digital_data.horn = local_horn;
+    digital_data.crz_mode_a = toggleOnPress(local_crz_mode_a, crz_mode_a_state, last_crz_mode_a_input);
+    digital_data.crz_set = local_crz_set;
+    digital_data.crz_reset = local_crz_reset;
+
+    hazards = toggleOnPress(local_hazards, hazards_state, last_hazards_input);
+    drive_mode = toggleOnPress(local_drive_mode, drive_mode_state, last_drive_mode_input);
 
     number_reads++;
+
+    portEXIT_CRITICAL(&stateMux);
 }
 
 void initIO() {
@@ -92,15 +118,6 @@ void initIO() {
     pinMode(HAZARDS_PIN, INPUT);
     pinMode(DRIVE_MODE_PIN, INPUT);
 
-    // Initialize timer 0 with prescaler 80 (80 MHz / 80 = 1 MHz tick), counting up
-    io_timer = timerBegin(0, 80, true);
-    timerAttachInterrupt(io_timer, &readIO, true);
-    timerAlarmWrite(io_timer, 1000, true);  // 1,000 ticks @ 1 MHz = 1 ms, auto-reload
-    timerAlarmEnable(io_timer);
-
-    // Seed inputs once at startup so values are valid before first timer tick.
-    sampleIO();
-
     last_headlight_input = digitalRead(HEADLIGHT_PIN);
     last_left_blink_input = digitalRead(LEFT_BLINK_PIN);
     last_right_blink_input = digitalRead(RIGHT_BLINK_PIN);
@@ -109,15 +126,7 @@ void initIO() {
     last_hazards_input = digitalRead(HAZARDS_PIN);
     last_drive_mode_input = digitalRead(DRIVE_MODE_PIN);
     last_regen_button_input = digitalRead(REGEN_BRAKE_PIN);
-}
 
-void IRAM_ATTR readIO() {
-    io_read_pending = true;
-}
-
-void updateIO() {
-    if (io_read_pending) {
-        io_read_pending = false;
-        sampleIO();
-    }
-}
+    // Seed inputs once at startup so values are valid before first task execution.
+    sampleIO();
+}

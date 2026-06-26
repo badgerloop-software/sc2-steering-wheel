@@ -42,13 +42,12 @@ extern volatile bool hazards;
 extern volatile uint8_t drive_mode;
 extern volatile uint16_t number_reads;
 
-// initialize digital and analog pins, and timer to read pins
+extern portMUX_TYPE stateMux;
+
+// initialize digital and analog pins
 void initIO();
 
-// ISR callback that only schedules an IO read
-void IRAM_ATTR readIO();
+// Function to sample inputs - to be called by our FreeRTOS task
+void sampleIO();
 
-// Call frequently from loop() to perform pending IO reads.
-void updateIO();
-
-#endif
+#endif
