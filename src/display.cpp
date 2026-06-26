@@ -3,6 +3,7 @@
 #include "canSteering.h"
 #include "odometer.h"
 #include <Arduino.h>
+#include <cstring>
 #include <math.h>
 
 TFT_eSPI tft = TFT_eSPI();
@@ -58,30 +59,121 @@ void initDisplay(bool SD_enable) {
 #endif
 }
 
+static void ensureStaticLayout() {
+  static bool drawn = false;
+  if (drawn) {
+    return;
+  }
+
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.drawString("Accel:", 10, 10);
+  tft.drawString("Regen:", 10, 30);
+  tft.drawString("Miles:", 10, 50);
+  tft.drawString("MPH", (WIDTH - tft.textWidth("MPH")) / 2, 193);
+  drawn = true;
+}
+
+static bool updatePercentField(int x, int y, const char *value, char *lastValue,
+                               size_t lastSize, int clearWidth) {
+  if (strncmp(value, lastValue, lastSize) == 0) {
+    return false;
+  }
+
+  tft.fillRect(x, y, clearWidth, 16, TFT_BLACK);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.drawString(value, x, y);
+  strncpy(lastValue, value, lastSize - 1);
+  lastValue[lastSize - 1] = '\0';
+  return true;
+}
+
+static bool updateCenteredText(int y, int textSize, uint16_t color, const char *text,
+                               char *lastText, size_t lastSize, int clearWidth) {
+  if (strncmp(text, lastText, lastSize) == 0) {
+    return false;
+  }
+
+  int clearX = (WIDTH - clearWidth) / 2;
+  int textHeight = textSize * 8;
+  tft.fillRect(clearX, y, clearWidth, textHeight, TFT_BLACK);
+  tft.setTextColor(color);
+  tft.setTextSize(textSize);
+  tft.drawString(text, (WIDTH - tft.textWidth(text)) / 2, y);
+  strncpy(lastText, text, lastSize - 1);
+  lastText[lastSize - 1] = '\0';
+  return true;
+}
+
+static bool updateRightAlignedText(int centerX, int offsetX, int y, int textSize,
+                                   uint16_t color, const char *text, char *lastText,
+                                   size_t lastSize, int clearWidth) {
+  if (strncmp(text, lastText, lastSize) == 0) {
+    return false;
+  }
+
+  tft.setTextSize(textSize);
+  int textX = (centerX + offsetX) - (tft.textWidth(text) / 2);
+  tft.fillRect(textX - 2, y, clearWidth, textSize * 8, TFT_BLACK);
+  tft.setTextColor(color);
+  tft.drawString(text, textX, y);
+  strncpy(lastText, text, lastSize - 1);
+  lastText[lastSize - 1] = '\0';
+  return true;
+}
+
+static bool updateLeftAlignedText(int centerX, int offsetX, int y, int textSize,
+                                  uint16_t color, const char *text, char *lastText,
+                                  size_t lastSize, int clearWidth) {
+  if (strncmp(text, lastText, lastSize) == 0) {
+    return false;
+  }
+
+  tft.setTextSize(textSize);
+  int textX = (centerX - offsetX) - (tft.textWidth(text) / 2);
+  tft.fillRect(textX - 2, y, clearWidth, textSize * 8, TFT_BLACK);
+  tft.setTextColor(color);
+  tft.drawString(text, textX, y);
+  strncpy(lastText, text, lastSize - 1);
+  lastText[lastSize - 1] = '\0';
+  return true;
+}
+
+static bool updateBitmapIfChanged(bool changed, int x, int y, const uint8_t *bitmap,
+                                  int w, int h, uint16_t color) {
+  if (!changed) {
+    return false;
+  }
+
+  tft.drawBitmap(x, y, bitmap, w, h, color);
+  return true;
+}
+
 void renderMinimalDisplay(float speed) {
   static bool hasPreviousFrame = false;
-  static int lastSpeedValue = -1;
-  static int lastAccelPercent = -1;
-  static int lastRegenPercent = -1;
+  static char lastAccelBuffer[8] = "";
+  static char lastRegenBuffer[8] = "";
+  static char lastSpeedBuffer[12] = "";
+  static char lastOdoBuffer[12] = "";
+  static char lastDirectionBuffer[4] = "";
+  static char lastCruiseText[12] = "";
+  static char lastDriveModeText[4] = "";
   static bool lastHeadlight = false;
-  static bool lastLeftBlink = false;
-  static bool lastRightBlink = false;
-  static bool lastHazards = false;
-  static bool lastCruiseMode = false;
-  static bool lastCruiseSet = false;
-  static bool lastCruiseReset = false;
-  static uint8_t lastDriveMode = 255;
-  static bool lastDirectionSwitch = false;
-  static uint32_t lastOdo = 0xFFFFFFFF;
+  static bool lastLeftBlinkLit = false;
+  static bool lastRightBlinkLit = false;
+  static bool lastHazardLit = false;
   static bool lastBatteryFault = false;
-  static bool lastBlinkPhase = false;
+  static int lastSpeedValue = -1;
+
+  ensureStaticLayout();
 
   int speedValue = (int)lroundf(speed);
   if (speedValue < 0) {
     speedValue = 0;
   }
 
-  // 1. Copy shared volatile variables under critical section
   portENTER_CRITICAL(&stateMux);
   float local_throttle = throttle;
   uint8_t local_regen_brake_percent = regen_brake_percent;
@@ -104,14 +196,15 @@ void renderMinimalDisplay(float speed) {
   bool rightBlink = local_digital_data.right_blink;
   bool hazardState = local_hazards;
   bool cruiseMode = local_digital_data.crz_mode_a;
-  bool cruiseSet = local_digital_data.crz_set;
-  bool cruiseReset = local_digital_data.crz_reset;
   uint8_t currentDriveMode = local_drive_mode;
   bool directionSwitch = local_digital_data.direction_switch;
   uint32_t currentOdo = getOdometerTenths();
   bool batteryFault = local_battery_fault_active;
   bool blinkPhase = getBlinkPhase();
-  bool blinkActive = leftBlink || rightBlink || hazardState;
+
+  bool leftBlinkLit = (leftBlink || hazardState) && blinkPhase;
+  bool rightBlinkLit = (rightBlink || hazardState) && blinkPhase;
+  bool hazardLit = hazardState && blinkPhase;
 
   char accelBuffer[8];
   char regenBuffer[8];
@@ -123,91 +216,63 @@ void renderMinimalDisplay(float speed) {
   snprintf(regenBuffer, sizeof(regenBuffer), "%02d%%", regenPercent);
   dtostrf(speed, 0, 1, speedBuffer);
   snprintf(odoBuffer, sizeof(odoBuffer), "%lu", (unsigned long)getOdometerMiles());
-  snprintf(directionBuffer, sizeof(directionBuffer), "%s", directionSwitch ? "Rev" : "Fwd");
+  snprintf(directionBuffer, sizeof(directionBuffer), "%s", directionSwitch ? "Fwd" : "Rev");
 
-  bool screenNeedsUpdate =
-      !hasPreviousFrame || speedValue != lastSpeedValue ||
-      accelPercent != lastAccelPercent || regenPercent != lastRegenPercent ||
-      headlight != lastHeadlight || leftBlink != lastLeftBlink ||
-      rightBlink != lastRightBlink || hazardState != lastHazards ||
-      cruiseMode != lastCruiseMode || cruiseSet != lastCruiseSet ||
-      cruiseReset != lastCruiseReset || currentDriveMode != lastDriveMode ||
-      directionSwitch != lastDirectionSwitch || currentOdo != lastOdo ||
-      batteryFault != lastBatteryFault ||
-      (blinkActive && blinkPhase != lastBlinkPhase);
-
-  if (!screenNeedsUpdate) {
-    return;
-  }
-
-  hasPreviousFrame = true;
-  lastSpeedValue = speedValue;
-  lastAccelPercent = accelPercent;
-  lastRegenPercent = regenPercent;
-  lastHeadlight = headlight;
-  lastLeftBlink = leftBlink;
-  lastRightBlink = rightBlink;
-  lastHazards = hazardState;
-  lastCruiseMode = cruiseMode;
-  lastCruiseSet = cruiseSet;
-  lastCruiseReset = cruiseReset;
-  lastDriveMode = currentDriveMode;
-  lastDirectionSwitch = directionSwitch;
-  lastOdo = currentOdo;
-  lastBatteryFault = batteryFault;
-  lastBlinkPhase = blinkPhase;
-
-  tft.fillScreen(TFT_BLACK);
-
-  const char *Drive_mode__Eco_or_Pwr__text = currentDriveMode ? "Pwr" : "Eco";
-  const char *cruiseText = (cruiseMode || cruiseSet || cruiseReset) ? "Cruise On" : "Cruise Off";
+  const char *driveModeText = currentDriveMode ? "Pwr" : "Eco";
+  const char *cruiseText = cruiseMode ? "Cruise On" : "Cruise Off";
 
   const int centerX = WIDTH / 2;
   const int topRowY = 55;
   const int iconRowY = 125;
 
-  tft.setTextColor(TFT_WHITE);
-  tft.setTextSize(2);
-  tft.drawString("Accel:", 10, 10);
-  tft.drawString(accelBuffer, 90, 10);
+  bool updated = false;
+  updated |= updatePercentField(90, 10, accelBuffer, lastAccelBuffer, sizeof(lastAccelBuffer), 56);
+  updated |= updatePercentField(90, 30, regenBuffer, lastRegenBuffer, sizeof(lastRegenBuffer), 56);
+  updated |= updatePercentField(90, 50, odoBuffer, lastOdoBuffer, sizeof(lastOdoBuffer), 120);
 
-  tft.drawString("Regen:", 10, 30);
-  tft.drawString(regenBuffer, 90, 30);
+  if (!hasPreviousFrame || speedValue != lastSpeedValue ||
+      strncmp(speedBuffer, lastSpeedBuffer, sizeof(lastSpeedBuffer)) != 0) {
+    tft.fillRect(centerX - 110, 135, 220, 48, TFT_BLACK);
+    tft.setTextColor(TFT_WHITE);
+    tft.setTextSize(6);
+    tft.drawString(speedBuffer, (WIDTH - tft.textWidth(speedBuffer)) / 2, 135);
+    strncpy(lastSpeedBuffer, speedBuffer, sizeof(lastSpeedBuffer) - 1);
+    lastSpeedBuffer[sizeof(lastSpeedBuffer) - 1] = '\0';
+    lastSpeedValue = speedValue;
+    updated = true;
+  }
 
-  tft.drawString("Miles:", 10, 50);
-  tft.drawString(odoBuffer, 90, 50);
+  updated |= updateRightAlignedText(centerX, 110, 220, 3, 0x61D6, driveModeText,
+                                    lastDriveModeText, sizeof(lastDriveModeText), 72);
+  updated |= updateLeftAlignedText(centerX, 110, 220, 3, 0x24BE, directionBuffer,
+                                     lastDirectionBuffer, sizeof(lastDirectionBuffer), 72);
+  updated |= updateCenteredText(285, 2, 0x4D6A, cruiseText, lastCruiseText,
+                                  sizeof(lastCruiseText), 160);
 
-  tft.drawBitmap(288, topRowY, image_bms_fault_bits, 96, 64,
-                 batteryFault ? 0xF206 : TFT_DARKGREY);
-  tft.drawBitmap(192, topRowY, image_headlights_bits, 64, 52,
-                 headlight ? 0x4D6A : TFT_DARKGREY);
-  tft.drawBitmap(96, topRowY, image_hazards_bits, 64, 64,
-                 (hazardState && blinkPhase) ? 0xFAA4 : TFT_DARKGREY);
+  updated |= updateBitmapIfChanged(!hasPreviousFrame || batteryFault != lastBatteryFault,
+                                   288, topRowY, image_bms_fault_bits, 96, 64,
+                                   batteryFault ? 0xF206 : TFT_DARKGREY);
+  updated |= updateBitmapIfChanged(!hasPreviousFrame || headlight != lastHeadlight, 192,
+                                   topRowY, image_headlights_bits, 64, 52,
+                                   headlight ? 0x4D6A : TFT_DARKGREY);
+  updated |= updateBitmapIfChanged(!hasPreviousFrame || hazardLit != lastHazardLit, 96,
+                                   topRowY, image_hazards_bits, 64, 64,
+                                   hazardLit ? 0xFAA4 : TFT_DARKGREY);
+  updated |= updateBitmapIfChanged(!hasPreviousFrame || rightBlinkLit != lastRightBlinkLit,
+                                   358, iconRowY, image_right_blink_bits, 84, 60,
+                                   rightBlinkLit ? 0xFF47 : TFT_DARKGREY);
+  updated |= updateBitmapIfChanged(!hasPreviousFrame || leftBlinkLit != lastLeftBlinkLit, 38,
+                                   iconRowY, image_left_blink_bits, 84, 60,
+                                   leftBlinkLit ? 0xFF47 : TFT_DARKGREY);
 
-  tft.setTextColor(TFT_WHITE);
-  tft.setTextSize(6);
-  tft.drawString(speedBuffer, (WIDTH - tft.textWidth(speedBuffer)) / 2, 135);
+  if (!updated && hasPreviousFrame) {
+    return;
+  }
 
-  tft.setTextColor(0x61D6);
-  tft.setTextSize(3);
-  tft.drawString(Drive_mode__Eco_or_Pwr__text,
-                 (centerX + 110) - (tft.textWidth(Drive_mode__Eco_or_Pwr__text) / 2),
-                 220);
-
-  tft.drawBitmap(358, iconRowY, image_right_blink_bits, 84, 60,
-                 ((rightBlink || hazardState) && blinkPhase) ? 0xFF47 : TFT_DARKGREY);
-  tft.drawBitmap(38, iconRowY, image_left_blink_bits, 84, 60,
-                 ((leftBlink || hazardState) && blinkPhase) ? 0xFF47 : TFT_DARKGREY);
-
-  tft.setTextColor(TFT_WHITE);
-  tft.setTextSize(2);
-  tft.drawString("MPH", (WIDTH - tft.textWidth("MPH")) / 2, 193);
-
-  tft.setTextColor(0x4D6A);
-  tft.drawString(cruiseText, (WIDTH - tft.textWidth(cruiseText)) / 2, 285);
-
-  tft.setTextColor(0x24BE);
-  tft.setTextSize(3);
-  tft.drawString(directionBuffer,
-                 (centerX - 110) - (tft.textWidth(directionBuffer) / 2), 220);
+  hasPreviousFrame = true;
+  lastHeadlight = headlight;
+  lastLeftBlinkLit = leftBlinkLit;
+  lastRightBlinkLit = rightBlinkLit;
+  lastHazardLit = hazardLit;
+  lastBatteryFault = batteryFault;
 }

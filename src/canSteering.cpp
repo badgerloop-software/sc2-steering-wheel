@@ -125,13 +125,15 @@ void CANSteering::sendSteeringData() {
 
     // Compute blink phase from steering wheel clock — all boards will be in sync
     bool blink_phase = getBlinkPhase();
+    bool left_lamp = (local_digital_data.left_blink || local_hazards) && blink_phase;
+    bool right_lamp = (local_digital_data.right_blink || local_hazards) && blink_phase;
     float regen_brake_normalized = (float)local_regen_brake_percent / 100.0f;
     uint16_t throttle_raw = (local_throttle < 0.0f) ? 0U : (local_throttle > (float)MAX_ANALOG_VALUE ? MAX_ANALOG_VALUE : (uint16_t)local_throttle);
     uint8_t digital_payload = 0;
 
     digital_payload |= (local_digital_data.headlight ? 1U : 0U) << 0;
-    digital_payload |= ((local_digital_data.left_blink && blink_phase) ? 1U : 0U) << 1;
-    digital_payload |= ((local_digital_data.right_blink && blink_phase) ? 1U : 0U) << 2;
+    digital_payload |= (left_lamp ? 1U : 0U) << 1;
+    digital_payload |= (right_lamp ? 1U : 0U) << 2;
     digital_payload |= (local_digital_data.direction_switch ? 1U : 0U) << 3;
     digital_payload |= (local_digital_data.horn ? 1U : 0U) << 4;
     digital_payload |= (local_digital_data.crz_mode_a ? 1U : 0U) << 5;
