@@ -88,15 +88,28 @@ void sampleIO() {
     throttle = local_throttle;
 
     digital_data.headlight = toggleOnPress(local_headlight, headlight_state, last_headlight_input);
-    digital_data.left_blink = toggleOnPress(local_left_blink, left_blink_state, last_left_blink_input);
-    digital_data.right_blink = toggleOnPress(local_right_blink, right_blink_state, last_right_blink_input);
     digital_data.direction_switch = toggleOnPress(local_direction_switch, direction_switch_state, last_direction_switch_input);
     digital_data.horn = local_horn;
     digital_data.crz_mode_a = toggleOnPress(local_crz_mode_a, crz_mode_a_state, last_crz_mode_a_input);
     digital_data.crz_set = local_crz_set;
     digital_data.crz_reset = local_crz_reset;
 
+    bool was_hazards = hazards_state;
     hazards = toggleOnPress(local_hazards, hazards_state, last_hazards_input);
+    if (hazards && !was_hazards) {
+        left_blink_state = false;
+        right_blink_state = false;
+        digital_data.left_blink = false;
+        digital_data.right_blink = false;
+    }
+
+    if (!hazards) {
+        digital_data.left_blink = toggleOnPress(local_left_blink, left_blink_state, last_left_blink_input);
+        digital_data.right_blink = toggleOnPress(local_right_blink, right_blink_state, last_right_blink_input);
+    } else {
+        last_left_blink_input = local_left_blink;
+        last_right_blink_input = local_right_blink;
+    }
     drive_mode = toggleOnPress(local_drive_mode, drive_mode_state, last_drive_mode_input);
 
     number_reads++;
