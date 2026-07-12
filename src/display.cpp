@@ -70,9 +70,24 @@ static void ensureStaticLayout() {
   tft.setTextSize(2);
   tft.drawString("Accel:", 10, 10);
   tft.drawString("Regen:", 10, 30);
-  tft.drawString("Miles:", 10, 50);
-  tft.drawString("MPH", (WIDTH - tft.textWidth("MPH")) / 2, 193);
   drawn = true;
+}
+
+static bool updateRightField(int y, const char *value, char *lastValue, size_t lastSize,
+                             int clearWidth) {
+  if (strncmp(value, lastValue, lastSize) == 0) {
+    return false;
+  }
+
+  tft.setTextSize(2);
+  int textWidth = tft.textWidth(value);
+  int x = WIDTH - textWidth - 8;
+  tft.fillRect(WIDTH - clearWidth, y, clearWidth, 16, TFT_BLACK);
+  tft.setTextColor(TFT_WHITE);
+  tft.drawString(value, x, y);
+  strncpy(lastValue, value, lastSize - 1);
+  lastValue[lastSize - 1] = '\0';
+  return true;
 }
 
 static bool updatePercentField(int x, int y, const char *value, char *lastValue,
@@ -158,7 +173,6 @@ void renderMinimalDisplay(float speed) {
   static char lastSpeedBuffer[12] = "";
   static char lastOdoBuffer[12] = "";
   static char lastDirectionBuffer[4] = "";
-  static char lastCruiseText[12] = "";
   static char lastDriveModeText[4] = "";
   static bool lastHeadlight = false;
   static bool lastLeftBlinkLit = false;
@@ -183,7 +197,7 @@ void renderMinimalDisplay(float speed) {
   bool local_battery_fault_active = battery_fault_active;
   portEXIT_CRITICAL(&stateMux);
 
-  int accelPercent = (int)lroundf((local_throttle / 4095.0f) * 100.0f);
+  int accelPercent = (int)lroundf((local_throttle / (float)THROTTLE_SENT_MAX) * 100.0f);
   if (accelPercent < 0) accelPercent = 0;
   if (accelPercent > 100) accelPercent = 100;
 
@@ -195,10 +209,8 @@ void renderMinimalDisplay(float speed) {
   bool leftBlink = local_digital_data.left_blink;
   bool rightBlink = local_digital_data.right_blink;
   bool hazardState = local_hazards;
-  bool cruiseMode = local_digital_data.crz_mode_a;
   uint8_t currentDriveMode = local_drive_mode;
   bool directionSwitch = local_digital_data.direction_switch;
-  uint32_t currentOdo = getOdometerTenths();
   bool batteryFault = local_battery_fault_active;
   bool blinkPhase = getBlinkPhase();
 
@@ -215,11 +227,10 @@ void renderMinimalDisplay(float speed) {
   snprintf(accelBuffer, sizeof(accelBuffer), "%02d%%", accelPercent);
   snprintf(regenBuffer, sizeof(regenBuffer), "%02d%%", regenPercent);
   dtostrf(speed, 0, 1, speedBuffer);
-  snprintf(odoBuffer, sizeof(odoBuffer), "%lu", (unsigned long)getOdometerMiles());
+  snprintf(odoBuffer, sizeof(odoBuffer), "%lu mi", (unsigned long)getOdometerMiles());
   snprintf(directionBuffer, sizeof(directionBuffer), "%s", directionSwitch ? "Fwd" : "Rev");
 
   const char *driveModeText = currentDriveMode ? "Pwr" : "Eco";
-  const char *cruiseText = cruiseMode ? "Cruise On" : "Cruise Off";
 
   const int centerX = WIDTH / 2;
   const int topRowY = 55;
@@ -228,7 +239,7 @@ void renderMinimalDisplay(float speed) {
   bool updated = false;
   updated |= updatePercentField(90, 10, accelBuffer, lastAccelBuffer, sizeof(lastAccelBuffer), 56);
   updated |= updatePercentField(90, 30, regenBuffer, lastRegenBuffer, sizeof(lastRegenBuffer), 56);
-  updated |= updatePercentField(90, 50, odoBuffer, lastOdoBuffer, sizeof(lastOdoBuffer), 120);
+  updated |= updateRightField(10, odoBuffer, lastOdoBuffer, sizeof(lastOdoBuffer), 120);
 
   if (!hasPreviousFrame || speedValue != lastSpeedValue ||
       strncmp(speedBuffer, lastSpeedBuffer, sizeof(lastSpeedBuffer)) != 0) {
@@ -242,12 +253,16 @@ void renderMinimalDisplay(float speed) {
     updated = true;
   }
 
+  if (!hasPreviousFrame) {
+    tft.setTextColor(TFT_WHITE);
+    tft.setTextSize(2);
+    tft.drawString("MPH", (WIDTH - tft.textWidth("MPH")) / 2, 193);
+  }
+
   updated |= updateRightAlignedText(centerX, 110, 220, 3, 0x61D6, driveModeText,
                                     lastDriveModeText, sizeof(lastDriveModeText), 72);
   updated |= updateLeftAlignedText(centerX, 110, 220, 3, 0x24BE, directionBuffer,
                                      lastDirectionBuffer, sizeof(lastDirectionBuffer), 72);
-  updated |= updateCenteredText(285, 2, 0x4D6A, cruiseText, lastCruiseText,
-                                  sizeof(lastCruiseText), 160);
 
   updated |= updateBitmapIfChanged(!hasPreviousFrame || batteryFault != lastBatteryFault,
                                    288, topRowY, image_bms_fault_bits, 96, 64,

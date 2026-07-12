@@ -14,14 +14,31 @@
 #define RIGHT_BLINK_PIN 5
 #define DIRECTION_SWITCH_PIN 32
 #define HORN_PIN 33
-#define CRZ_MODE_A_PIN 25
-#define CRZ_SET_PIN 26
-#define CRZ_RESET_PIN 27
 #define THROTTLE_PIN 12
 #define HAZARDS_PIN 14
 #define DRIVE_MODE_PIN 4
 
 #define IO_UPDATE_PERIOD 100000 // us
+
+// Throttle pedal calibration (12-bit ADC counts)
+#define THROTTLE_ADC_MAX  4095U
+#define THROTTLE_ADC_REST 721U   // idle pedal position -> 0% output
+#define THROTTLE_ADC_FULL 2078U  // full pedal press -> 100% output
+#define THROTTLE_SENT_MAX THROTTLE_ADC_MAX
+
+static inline float calibratePedal(uint16_t raw_adc) {
+    if (raw_adc <= THROTTLE_ADC_REST) {
+        return 0.0f;
+    }
+
+    float normalized = (float)(raw_adc - THROTTLE_ADC_REST) /
+                       (float)(THROTTLE_ADC_FULL - THROTTLE_ADC_REST);
+    if (normalized > 1.0f) {
+        normalized = 1.0f;
+    }
+
+    return normalized * (float)THROTTLE_ADC_MAX;
+}
 
 struct Digital_Data {
   bool headlight : 1;        // input
@@ -29,9 +46,6 @@ struct Digital_Data {
   bool right_blink : 1;      // input
   bool direction_switch : 1; // input
   bool horn : 1;             // input
-  bool crz_mode_a : 1;       // input
-  bool crz_set : 1;          // input
-  bool crz_reset : 1;        // input
 };
 
 extern volatile Digital_Data digital_data;
@@ -50,4 +64,4 @@ void initIO();
 // Function to sample inputs - to be called by our FreeRTOS task
 void sampleIO();
 
-#endif
+#endif

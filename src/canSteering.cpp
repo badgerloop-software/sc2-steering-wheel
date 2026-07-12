@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "canSteering.h"
 
-#define MAX_ANALOG_VALUE 4095
 static const uint32_t CAN_SEND_TIMEOUT_MS = 10;
 
 float stuff = 0.0;
@@ -128,7 +127,8 @@ void CANSteering::sendSteeringData() {
     bool left_lamp = (local_digital_data.left_blink || local_hazards) && blink_phase;
     bool right_lamp = (local_digital_data.right_blink || local_hazards) && blink_phase;
     float regen_brake_normalized = (float)local_regen_brake_percent / 100.0f;
-    uint16_t throttle_raw = (local_throttle < 0.0f) ? 0U : (local_throttle > (float)MAX_ANALOG_VALUE ? MAX_ANALOG_VALUE : (uint16_t)local_throttle);
+    uint16_t throttle_raw = (local_throttle < 0.0f) ? 0U
+        : (local_throttle > (float)THROTTLE_SENT_MAX ? THROTTLE_SENT_MAX : (uint16_t)local_throttle);
     uint8_t digital_payload = 0;
 
     digital_payload |= (local_digital_data.headlight ? 1U : 0U) << 0;
@@ -136,9 +136,6 @@ void CANSteering::sendSteeringData() {
     digital_payload |= (right_lamp ? 1U : 0U) << 2;
     digital_payload |= (local_digital_data.direction_switch ? 1U : 0U) << 3;
     digital_payload |= (local_digital_data.horn ? 1U : 0U) << 4;
-    digital_payload |= (local_digital_data.crz_mode_a ? 1U : 0U) << 5;
-    digital_payload |= (local_digital_data.crz_set ? 1U : 0U) << 6;
-    digital_payload |= (local_digital_data.crz_reset ? 1U : 0U) << 7;
 
     bool tx_ok = this->sendMessage(0x300, (void*)&digital_payload, sizeof(digital_payload), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
