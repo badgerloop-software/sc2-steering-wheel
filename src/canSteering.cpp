@@ -195,7 +195,8 @@ void CANSteering::sendSteeringData() {
     tx_ok = this->sendMessage(0x304, (void*)&hazard_blink, sizeof(bool), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    uint8_t bps_light = local_battery_fault_active ? 1 : 0;
-    tx_ok = this->sendMessage(0x100, (void*)&bps_light, sizeof(bps_light), CAN_SEND_TIMEOUT_MS);
+    // Lightings BPS fault: CAN 0x103 bit 0
+    uint8_t bps_light = local_battery_fault_active ? 1U : 0U;
+    tx_ok = this->sendMessage(0x103, (void*)&bps_light, sizeof(bps_light), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 }
