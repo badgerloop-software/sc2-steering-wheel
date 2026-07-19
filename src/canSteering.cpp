@@ -92,23 +92,23 @@ void CANSteering::readHandler(CanFrame msg) {
             break;
         }
         case 0x505: {
-            // Powertrain estop
+            // Powertrain estop: 0 = fault, nonzero = OK
             if (msg.data_length_code > 0) {
-                local_505 = msg.data[0] != 0;
+                local_505 = msg.data[0] == 0;
                 update_505 = true;
             }
             break;
         }
         // case 0x506: {
         //     if (msg.data_length_code > 0) {
-        //         local_506 = msg.data[0] != 0;
+        //         local_506 = msg.data[0] == 0;
         //         update_506 = true;
         //     }
         //     break;
         // }
         // case 0x507: {
         //     if (msg.data_length_code > 0) {
-        //         local_507 = msg.data[0] != 0;
+        //         local_507 = msg.data[0] == 0;
         //         update_507 = true;
         //     }
         //     break;
