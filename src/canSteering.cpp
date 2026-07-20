@@ -94,7 +94,7 @@ void CANSteering::readHandler(CanFrame msg) {
         case 0x505: {
             // Powertrain estop: 0 = fault, nonzero = OK
             if (msg.data_length_code > 0) {
-                local_505 = msg.data[0] == 0;
+                local_505 = msg.data[0] == 0x01;
                 update_505 = true;
             }
             break;
