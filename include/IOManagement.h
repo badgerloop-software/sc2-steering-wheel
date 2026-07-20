@@ -5,7 +5,7 @@
 
 // Uncomment to enable Serial debug prints. Comment out for production
 // to save CPU cycles and reduce latency.
-// #define DEBUG_PRINTS
+#define DEBUG_PRINTS
 
 // Macros for pins
 #define REGEN_BRAKE_PIN 35

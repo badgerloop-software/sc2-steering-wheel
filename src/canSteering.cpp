@@ -17,8 +17,26 @@ static volatile bool bps_src_505 = false;
 // static volatile bool bps_src_506 = false;
 // static volatile bool bps_src_507 = false;
 
+#ifdef DEBUG_PRINTS
+static void debugPrintCan(const char *dir, uint16_t id, const void *data, uint8_t len, bool ok = true) {
+    const uint8_t *bytes = static_cast<const uint8_t *>(data);
+    Serial.printf("CAN %s 0x%03X [%u]:", dir, id, len);
+    for (uint8_t i = 0; i < len; ++i) {
+        Serial.printf(" %02X", bytes[i]);
+    }
+    if (dir[0] == 'T') {
+        Serial.printf(" (%s)", ok ? "ok" : "fail");
+    }
+    Serial.println();
+}
+#endif
+
 CANSteering::CANSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue, uint16_t frequency) : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {};
 void CANSteering::readHandler(CanFrame msg) {
+#ifdef DEBUG_PRINTS
+    debugPrintCan("RX", msg.identifier, msg.data, msg.data_length_code);
+#endif
+
     // 1. Prepare local variables to update under spinlock
     uint16_t local_last_id = msg.identifier;
     uint8_t local_last_dlc = msg.data_length_code;
@@ -86,7 +104,7 @@ void CANSteering::readHandler(CanFrame msg) {
                 }
 
 #ifdef DEBUG_PRINTS
-                Serial.printf("CAN 0x302: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
+                Serial.printf("CAN RX 0x302 decoded: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
 #endif
             }
             break;
@@ -173,30 +191,41 @@ void CANSteering::sendSteeringData() {
     digital_payload |= (local_digital_data.horn ? 1U : 0U) << 4;
 
     bool tx_ok = this->sendMessage(0x300, (void*)&digital_payload, sizeof(digital_payload), CAN_SEND_TIMEOUT_MS);
+#ifdef DEBUG_PRINTS
+    debugPrintCan("TX", 0x300, &digital_payload, sizeof(digital_payload), tx_ok);
+#endif
     send_success &= tx_ok;
 
     tx_ok = this->sendMessage(0x301, (void*)&regen_brake_normalized, sizeof(float), CAN_SEND_TIMEOUT_MS);
+#ifdef DEBUG_PRINTS
+    debugPrintCan("TX", 0x301, &regen_brake_normalized, sizeof(float), tx_ok);
+#endif
     send_success &= tx_ok;
 
     tx_ok = this->sendMessage(0x302, (void*)&throttle_raw, sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
 #ifdef DEBUG_PRINTS
-    if (!tx_ok) {
-        Serial.printf("Failed to send CAN 0x302: raw=%u\n", throttle_raw);
-    } else {
-        Serial.printf("Sent CAN 0x302: raw=%u\n", throttle_raw);
-    }
+    debugPrintCan("TX", 0x302, &throttle_raw, sizeof(throttle_raw), tx_ok);
 #endif
     send_success &= tx_ok;
 
     tx_ok = this->sendMessage(0x303, (void*)&local_drive_mode, sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);
+#ifdef DEBUG_PRINTS
+    debugPrintCan("TX", 0x303, &local_drive_mode, sizeof(uint8_t), tx_ok);
+#endif
     send_success &= tx_ok;
 
     bool hazard_blink = local_hazards && blink_phase;
     tx_ok = this->sendMessage(0x304, (void*)&hazard_blink, sizeof(bool), CAN_SEND_TIMEOUT_MS);
+#ifdef DEBUG_PRINTS
+    debugPrintCan("TX", 0x304, &hazard_blink, sizeof(bool), tx_ok);
+#endif
     send_success &= tx_ok;
 
     // Lightings BPS fault: CAN 0x103 bit 0
     uint8_t bps_light = local_battery_fault_active ? 1U : 0U;
     tx_ok = this->sendMessage(0x103, (void*)&bps_light, sizeof(bps_light), CAN_SEND_TIMEOUT_MS);
+#ifdef DEBUG_PRINTS
+    debugPrintCan("TX", 0x103, &bps_light, sizeof(bps_light), tx_ok);
+#endif
     send_success &= tx_ok;
 }
