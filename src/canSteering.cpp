@@ -12,19 +12,81 @@ volatile uint16_t can_last_id = 0;
 volatile uint8_t can_last_dlc = 0;
 volatile bool battery_fault_active = false;
 volatile float battery_soc = 0.0f;
+volatile float battery_low_temp_c = 0.0f;
+volatile float battery_high_temp_c = 0.0f;
+volatile float battery_high_cell_v = 0.0f;
+volatile float battery_low_cell_v = 0.0f;
+volatile float battery_pack_abs_current_a = 0.0f;
+volatile float battery_est_pack_v = 0.0f;
 
 static volatile bool bps_src_505 = false;
 // static volatile bool bps_src_506 = false;
 // static volatile bool bps_src_507 = false;
 
+static inline uint16_t readBeUint16(const uint8_t *data) {
+    return (uint16_t)(((uint16_t)data[0] << 8) | data[1]);
+}
+
+// Matches sc2-powertrain BPS_PACK_CURRENT_* : midscale 0x8000 = 0 A, 0.1 A/bit
+static const uint16_t PACK_CURRENT_ZERO_RAW = 0x8000U;
+static const float PACK_CURRENT_SCALE_A = 0.1f;
+static const float CELL_VOLTAGE_SCALE_V = 0.0001f;
+
+// OCV curve: cell V at SOC 0,5,10,...,100 (matches streamlit app)
+static const float CELL_VOLTAGES[] = {
+    2.500f, 2.871f, 3.043f, 3.160f, 3.269f,
+    3.371f, 3.429f, 3.476f, 3.521f, 3.572f,
+    3.629f, 3.680f, 3.726f, 3.765f, 3.804f,
+    3.865f, 3.923f, 3.955f, 3.975f, 3.998f, 4.111f
+};
+static const int CELL_VOLTAGE_COUNT = sizeof(CELL_VOLTAGES) / sizeof(CELL_VOLTAGES[0]);
+static const float SERIES_COUNT = 29.0f;
+
+static float socFromPackVoltage(float pack_voltage) {
+    float cell_voltage = pack_voltage / SERIES_COUNT;
+
+    if (cell_voltage <= CELL_VOLTAGES[0]) {
+        return 0.0f;
+    }
+    if (cell_voltage >= CELL_VOLTAGES[CELL_VOLTAGE_COUNT - 1]) {
+        return 100.0f;
+    }
+
+    for (int i = 0; i < CELL_VOLTAGE_COUNT - 1; i++) {
+        float low_v = CELL_VOLTAGES[i];
+        float high_v = CELL_VOLTAGES[i + 1];
+        if (low_v <= cell_voltage && cell_voltage <= high_v) {
+            float fraction = (cell_voltage - low_v) / (high_v - low_v);
+            return (float)(i * 5) + fraction * 5.0f;
+        }
+    }
+
+    return 0.0f;
+}
+
+static float decodePackAbsCurrentA(uint16_t raw_current) {
+    uint16_t magnitude = (raw_current >= PACK_CURRENT_ZERO_RAW)
+        ? (uint16_t)(raw_current - PACK_CURRENT_ZERO_RAW)
+        : (uint16_t)(PACK_CURRENT_ZERO_RAW - raw_current);
+    return (float)magnitude * PACK_CURRENT_SCALE_A;
+}
+
 CANSteering::CANSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue, uint16_t frequency) : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {};
 void CANSteering::readHandler(CanFrame msg) {
     // 1. Prepare local variables to update under spinlock
-    uint16_t local_last_id = msg.identifier;
+    const uint32_t can_id = msg.identifier & 0x7FFu;
+    uint16_t local_last_id = (uint16_t)can_id;
     uint8_t local_last_dlc = msg.data_length_code;
 
-    float local_battery_soc = -1.0f;
-    bool update_battery_soc = false;
+    float local_battery_soc = 0.0f;
+    float local_low_temp_c = 0.0f;
+    float local_high_temp_c = 0.0f;
+    bool update_temps = false;
+    float local_high_cell_v = 0.0f;
+    float local_low_cell_v = 0.0f;
+    float local_pack_abs_current_a = 0.0f;
+    float local_est_pack_v = 0.0f;
+    bool update_cell_pack = false;
     float local_stuff = 0.0f;
     bool update_stuff = false;
     float local_speedsig = 0.0f;
@@ -37,14 +99,25 @@ void CANSteering::readHandler(CanFrame msg) {
     // bool local_507 = false;
     // bool update_507 = false;
 
-    switch (msg.identifier){
-        case 0x101:{
-            // Pack State of Charge: 1 byte at index 4, 0.5% per count
-            if (msg.data_length_code >= 5) {
-                float soc = (float)msg.data[4] * 0.5f;
-                if (soc > 100.0f) soc = 100.0f;
-                local_battery_soc = soc;
-                update_battery_soc = true;
+    switch (can_id){
+        case 0x108:{
+            // Low/High Temperature: big-endian uint16, 1 C (matches powertrain)
+            if (msg.data_length_code >= 4) {
+                local_low_temp_c = (float)readBeUint16(&msg.data[0]);
+                local_high_temp_c = (float)readBeUint16(&msg.data[2]);
+                update_temps = true;
+            }
+            break;
+        }
+        case 0x109:{
+            // High/Low cell V (0.0001 V), Pack Abs Current (0x8000 midscale, 0.1 A)
+            if (msg.data_length_code >= 6) {
+                local_high_cell_v = (float)readBeUint16(&msg.data[0]) * CELL_VOLTAGE_SCALE_V;
+                local_low_cell_v = (float)readBeUint16(&msg.data[2]) * CELL_VOLTAGE_SCALE_V;
+                local_pack_abs_current_a = decodePackAbsCurrentA(readBeUint16(&msg.data[4]));
+                local_est_pack_v = ((local_high_cell_v + local_low_cell_v) / 2.0f) * SERIES_COUNT;
+                local_battery_soc = socFromPackVoltage(local_est_pack_v);
+                update_cell_pack = true;
             }
             break;
         }
@@ -122,7 +195,15 @@ void CANSteering::readHandler(CanFrame msg) {
     can_messages_read++;
     can_last_id = local_last_id;
     can_last_dlc = local_last_dlc;
-    if (update_battery_soc) {
+    if (update_temps) {
+        battery_low_temp_c = local_low_temp_c;
+        battery_high_temp_c = local_high_temp_c;
+    }
+    if (update_cell_pack) {
+        battery_high_cell_v = local_high_cell_v;
+        battery_low_cell_v = local_low_cell_v;
+        battery_pack_abs_current_a = local_pack_abs_current_a;
+        battery_est_pack_v = local_est_pack_v;
         battery_soc = local_battery_soc;
     }
     if (update_505) {
@@ -145,6 +226,9 @@ void CANSteering::readHandler(CanFrame msg) {
 }
 
 void CANSteering::sendSteeringData() {
+    // Drain pending RX before TX so BMS frames are less likely to overflow the queue
+    this->runQueue(2);
+
     // 1. Copy shared volatile variables under critical section
     portENTER_CRITICAL(&stateMux);
     uint8_t local_regen_brake_percent = regen_brake_percent;

@@ -7,6 +7,7 @@ volatile float throttle;
 volatile uint16_t number_reads = 0;
 volatile bool hazards = 0;
 volatile uint8_t drive_mode = 0;
+volatile uint16_t lap_count = 0;
 portMUX_TYPE stateMux = portMUX_INITIALIZER_UNLOCKED;
 
 static bool headlight_state = false;
@@ -23,6 +24,8 @@ static bool direction_input_armed = false;
 static bool drive_mode_state = false;
 static bool last_drive_mode_input = false;
 static bool last_regen_button_input = false;
+static bool last_crz_set_input = false;
+static bool last_crz_reset_input = false;
 
 static const uint16_t MAX_ANALOG_VALUE = THROTTLE_SENT_MAX;
 
@@ -46,6 +49,8 @@ void sampleIO() {
     bool local_horn = digitalRead(HORN_PIN);
     bool local_hazards = digitalRead(HAZARDS_PIN);
     bool local_drive_mode = digitalRead(DRIVE_MODE_PIN);
+    bool local_crz_set = digitalRead(CRZ_SET_PIN);
+    bool local_crz_reset = digitalRead(CRZ_RESET_PIN);
 
     // 2. Perform calibration calculations
     float pedal_calibrated = calibratePedal(local_throttle_raw);
@@ -113,6 +118,21 @@ void sampleIO() {
     }
     drive_mode = toggleOnPress(local_drive_mode, drive_mode_state, last_drive_mode_input);
 
+    // Cruise set/reset unused — edge-detect for lap counter instead
+    if (local_crz_set && !last_crz_set_input) {
+        if (lap_count < 999) {
+            lap_count++;
+        }
+    }
+    last_crz_set_input = local_crz_set;
+
+    if (local_crz_reset && !last_crz_reset_input) {
+        if (lap_count > 0) {
+            lap_count--;
+        }
+    }
+    last_crz_reset_input = local_crz_reset;
+
     number_reads++;
 
     portEXIT_CRITICAL(&stateMux);
@@ -128,6 +148,8 @@ void initIO() {
     pinMode(HORN_PIN, INPUT);
     pinMode(HAZARDS_PIN, INPUT);
     pinMode(DRIVE_MODE_PIN, INPUT);
+    pinMode(CRZ_SET_PIN, INPUT);
+    pinMode(CRZ_RESET_PIN, INPUT);
 
     last_headlight_input = digitalRead(HEADLIGHT_PIN);
     last_left_blink_input = digitalRead(LEFT_BLINK_PIN);
@@ -136,6 +158,8 @@ void initIO() {
     last_hazards_input = digitalRead(HAZARDS_PIN);
     last_drive_mode_input = digitalRead(DRIVE_MODE_PIN);
     last_regen_button_input = digitalRead(REGEN_BRAKE_PIN);
+    last_crz_set_input = digitalRead(CRZ_SET_PIN);
+    last_crz_reset_input = digitalRead(CRZ_RESET_PIN);
 
     // Default to forward on boot; first sampleIO() only seeds edge detection.
     direction_switch_state = true;

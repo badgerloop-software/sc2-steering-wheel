@@ -24,10 +24,10 @@ void ioTask(void* pvParameters) {
 void canRxTask(void* pvParameters) {
     while (true) {
         if (canSteering != nullptr) {
-            // Process TWAI RX queue for 10ms
-            canSteering->runQueue(10);
+            // Drain RX aggressively so high-rate BMS frames are not dropped
+            canSteering->runQueue(20);
         }
-        vTaskDelay(pdMS_TO_TICKS(5)); // Yield CPU to other tasks
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -67,7 +67,7 @@ void setup() {
     initDisplay(false);
     initOdometer();
 
-    static CANSteering canSteeringInstance(CAN_TX, CAN_RX, 10, 10, 250);
+    static CANSteering canSteeringInstance(CAN_TX, CAN_RX, 32, 64, 250);
     canSteering = &canSteeringInstance;
 
     // Create and schedule tasks

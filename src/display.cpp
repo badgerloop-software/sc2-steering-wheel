@@ -70,6 +70,16 @@ static void ensureStaticLayout() {
   tft.setTextSize(2);
   tft.drawString("Accel:", 10, 10);
   tft.drawString("Regen:", 10, 30);
+
+  // BMS telemetry labels (values drawn dynamically to the right)
+  const int bmsY0 = 250;
+  tft.drawString("SOC", 10, bmsY0);
+  tft.drawString("Pack", 200, bmsY0);
+  tft.drawString("HiC", 10, bmsY0 + 18);
+  tft.drawString("LoC", 200, bmsY0 + 18);
+  tft.drawString("HiT", 10, bmsY0 + 36);
+  tft.drawString("LoT", 200, bmsY0 + 36);
+  tft.drawString("I", 10, bmsY0 + 54);
   drawn = true;
 }
 
@@ -172,8 +182,16 @@ void renderMinimalDisplay(float speed) {
   static char lastRegenBuffer[8] = "";
   static char lastSpeedBuffer[12] = "";
   static char lastOdoBuffer[12] = "";
+  static char lastLapBuffer[12] = "";
   static char lastDirectionBuffer[4] = "";
   static char lastDriveModeText[4] = "";
+  static char lastSocBuffer[12] = "";
+  static char lastPackVBuffer[14] = "";
+  static char lastHiCellBuffer[14] = "";
+  static char lastLoCellBuffer[14] = "";
+  static char lastHiTempBuffer[12] = "";
+  static char lastLoTempBuffer[12] = "";
+  static char lastCurrentBuffer[12] = "";
   static bool lastHeadlight = false;
   static bool lastLeftBlinkLit = false;
   static bool lastRightBlinkLit = false;
@@ -195,6 +213,14 @@ void renderMinimalDisplay(float speed) {
   bool local_hazards = hazards;
   uint8_t local_drive_mode = drive_mode;
   bool local_battery_fault_active = battery_fault_active;
+  uint16_t local_lap_count = lap_count;
+  float local_battery_soc = battery_soc;
+  float local_low_temp_c = battery_low_temp_c;
+  float local_high_temp_c = battery_high_temp_c;
+  float local_high_cell_v = battery_high_cell_v;
+  float local_low_cell_v = battery_low_cell_v;
+  float local_pack_abs_current_a = battery_pack_abs_current_a;
+  float local_est_pack_v = battery_est_pack_v;
   portEXIT_CRITICAL(&stateMux);
 
   int accelPercent = (int)lroundf((local_throttle / (float)THROTTLE_SENT_MAX) * 100.0f);
@@ -204,6 +230,10 @@ void renderMinimalDisplay(float speed) {
   int regenPercent = local_regen_brake_percent;
   if (regenPercent < 0) regenPercent = 0;
   if (regenPercent > 100) regenPercent = 100;
+
+  int socPercent = (int)lroundf(local_battery_soc);
+  if (socPercent < 0) socPercent = 0;
+  if (socPercent > 100) socPercent = 100;
 
   bool headlight = local_digital_data.headlight;
   bool leftBlink = local_digital_data.left_blink;
@@ -222,24 +252,50 @@ void renderMinimalDisplay(float speed) {
   char regenBuffer[8];
   char speedBuffer[12];
   char odoBuffer[12];
+  char lapBuffer[12];
   char directionBuffer[4];
+  char socBuffer[12];
+  char packVBuffer[14];
+  char hiCellBuffer[14];
+  char loCellBuffer[14];
+  char hiTempBuffer[12];
+  char loTempBuffer[12];
+  char currentBuffer[12];
 
   snprintf(accelBuffer, sizeof(accelBuffer), "%02d%%", accelPercent);
   snprintf(regenBuffer, sizeof(regenBuffer), "%02d%%", regenPercent);
   dtostrf(speed, 0, 1, speedBuffer);
   snprintf(odoBuffer, sizeof(odoBuffer), "%lu mi", (unsigned long)getOdometerMiles());
+  snprintf(lapBuffer, sizeof(lapBuffer), "Lap %u", (unsigned)local_lap_count);
   snprintf(directionBuffer, sizeof(directionBuffer), "%s", directionSwitch ? "Fwd" : "Rev");
+  snprintf(socBuffer, sizeof(socBuffer), "%d%%", socPercent);
+  snprintf(packVBuffer, sizeof(packVBuffer), "%.1fV", local_est_pack_v);
+  snprintf(hiCellBuffer, sizeof(hiCellBuffer), "%.3fV", local_high_cell_v);
+  snprintf(loCellBuffer, sizeof(loCellBuffer), "%.3fV", local_low_cell_v);
+  snprintf(hiTempBuffer, sizeof(hiTempBuffer), "%.0fC", local_high_temp_c);
+  snprintf(loTempBuffer, sizeof(loTempBuffer), "%.0fC", local_low_temp_c);
+  snprintf(currentBuffer, sizeof(currentBuffer), "%.1fA", local_pack_abs_current_a);
 
   const char *driveModeText = currentDriveMode ? "Pwr" : "Eco";
 
   const int centerX = WIDTH / 2;
   const int topRowY = 55;
   const int iconRowY = 125;
+  const int bmsY0 = 250;
 
   bool updated = false;
   updated |= updatePercentField(90, 10, accelBuffer, lastAccelBuffer, sizeof(lastAccelBuffer), 56);
   updated |= updatePercentField(90, 30, regenBuffer, lastRegenBuffer, sizeof(lastRegenBuffer), 56);
   updated |= updateRightField(10, odoBuffer, lastOdoBuffer, sizeof(lastOdoBuffer), 120);
+  updated |= updateRightField(30, lapBuffer, lastLapBuffer, sizeof(lastLapBuffer), 120);
+
+  updated |= updatePercentField(60, bmsY0, socBuffer, lastSocBuffer, sizeof(lastSocBuffer), 72);
+  updated |= updatePercentField(260, bmsY0, packVBuffer, lastPackVBuffer, sizeof(lastPackVBuffer), 100);
+  updated |= updatePercentField(60, bmsY0 + 18, hiCellBuffer, lastHiCellBuffer, sizeof(lastHiCellBuffer), 100);
+  updated |= updatePercentField(260, bmsY0 + 18, loCellBuffer, lastLoCellBuffer, sizeof(lastLoCellBuffer), 100);
+  updated |= updatePercentField(60, bmsY0 + 36, hiTempBuffer, lastHiTempBuffer, sizeof(lastHiTempBuffer), 72);
+  updated |= updatePercentField(260, bmsY0 + 36, loTempBuffer, lastLoTempBuffer, sizeof(lastLoTempBuffer), 72);
+  updated |= updatePercentField(40, bmsY0 + 54, currentBuffer, lastCurrentBuffer, sizeof(lastCurrentBuffer), 100);
 
   if (!hasPreviousFrame || speedValue != lastSpeedValue ||
       strncmp(speedBuffer, lastSpeedBuffer, sizeof(lastSpeedBuffer)) != 0) {

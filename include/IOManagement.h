@@ -17,6 +17,8 @@
 #define THROTTLE_PIN 12
 #define HAZARDS_PIN 14
 #define DRIVE_MODE_PIN 4
+#define CRZ_SET_PIN 26    // crz_inc — lap increment (cruise unused)
+#define CRZ_RESET_PIN 27  // crz_dec — lap decrement (cruise unused)
 
 #define IO_UPDATE_PERIOD 100000 // us
 
@@ -55,6 +57,7 @@ extern volatile float throttle;
 extern volatile bool hazards;
 extern volatile uint8_t drive_mode;
 extern volatile uint16_t number_reads;
+extern volatile uint16_t lap_count;
 
 extern portMUX_TYPE stateMux;
 
