@@ -12,10 +12,8 @@
 #define WIDTH 480
 
 
-extern const char* ANIM_FILEPATH;
-
 void initDisplay(bool SD_enable = true);
-void rotateColors();
+void renderMinimalDisplay(float speed);
 
 
 #endif

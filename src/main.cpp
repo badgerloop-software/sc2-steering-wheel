@@ -2,69 +2,119 @@
 #include "canSteering.h"
 #include "IOManagement.h"
 #include "display.h"
-#include "pointer.h"
-#include "speedometer.h"
-#include "batteryFault.h"
-#include "drawLapTelemetry.h"
+#include "odometer.h"
 
 #define CAN_TX		21
 #define CAN_RX		22
 
-CANSteering canSteering(CAN_TX, CAN_RX, 10, 10, 250);
-extern bool send_success;
+CANSteering* canSteering = nullptr;
 
-extern float stuff;
 extern float speedsig;
 
-volatile uint32_t last_lap_update_ms = 0;
-volatile int32_t lap_count = 0;
-volatile int32_t current_section = 0;
-volatile uint32_t lap_duration = 0;
+// Task implementations
+void ioTask(void* pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(10); // 10ms (100 Hz)
+    while (true) {
+        sampleIO();
+        vTaskDelayUntil(&lastWakeTime, period);
+    }
+}
+
+void canRxTask(void* pvParameters) {
+    while (true) {
+        if (canSteering != nullptr) {
+            // Drain RX aggressively so high-rate BMS frames are not dropped
+            canSteering->runQueue(20);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
+void canTxTask(void* pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(20); // 20ms (50 Hz)
+    while (true) {
+        if (canSteering != nullptr) {
+            canSteering->sendSteeringData();
+        }
+        vTaskDelayUntil(&lastWakeTime, period);
+    }
+}
+
+void displayTask(void* pvParameters) {
+    uint32_t lastLoopMs = millis();
+    while (true) {
+        uint32_t nowLoop = millis();
+        uint32_t deltaMs = nowLoop - lastLoopMs;
+        lastLoopMs = nowLoop;
+
+        // Copy speedsig under critical section
+        portENTER_CRITICAL(&stateMux);
+        float speed = speedsig;
+        portEXIT_CRITICAL(&stateMux);
+
+        updateOdometer(speed, deltaMs);
+        renderMinimalDisplay(speed);
+
+        vTaskDelay(pdMS_TO_TICKS(50)); // 50ms (20 Hz)
+    }
+}
 
 void setup() {
-    Serial.begin(9600);
-    Serial.println("Setup started...");
+    Serial.begin(115200);
     initIO();
-    Serial.println("After initIO");
-    begin();
-    Serial.println("After begin");
-    initSpeedometer();
-    Serial.println("After initSpeedometer");
+    initDisplay(false);
+    initOdometer();
+
+    static CANSteering canSteeringInstance(CAN_TX, CAN_RX, 32, 64, 250);
+    canSteering = &canSteeringInstance;
+
+    // Create and schedule tasks
+    // Pinned to Core 0 (timing-critical control tasks)
+    xTaskCreatePinnedToCore(
+        ioTask,
+        "ioTask",
+        4096,
+        nullptr,
+        3,          // Priority
+        nullptr,
+        0           // Core ID
+    );
+
+    xTaskCreatePinnedToCore(
+        canRxTask,
+        "canRxTask",
+        4096,
+        nullptr,
+        4,          // Higher Priority
+        nullptr,
+        0           // Core ID
+    );
+
+    xTaskCreatePinnedToCore(
+        canTxTask,
+        "canTxTask",
+        4096,
+        nullptr,
+        4,          // Higher Priority
+        nullptr,
+        0           // Core ID
+    );
+
+    // Pinned to Core 1 (slower, non-critical drawing tasks)
+    xTaskCreatePinnedToCore(
+        displayTask,
+        "displayTask",
+        8192,       // Larger stack size for TFT drawing
+        nullptr,
+        1,          // Lower Priority
+        nullptr,
+        1           // Core ID
+    );
 }
 
 void loop() {
-    Serial.println("Loop started...");
-    canSteering.sendSteeringData();
-    Serial.println("After sendSteeringData");
-
-    canSteering.runQueue(CAN_QUEUE_PERIOD);
-    Serial.println("After runQueue");
-
-    float speed = speedsig;
-
-    Serial.printf("Speed: %.2f\n", speed);
-
-    
-    updatePointer(speed);
-
-    drawBatteryFault();
-
-    drawLapTelemetry();
-
-
-    printf("\033[2J"); // clears the screen
-    printf("regen brake: %f\n", 3.3 * regen_brake / 4095);
-    printf("send_success: %d\n", send_success);
-    printf("headlight: %d\n", digital_data.headlight);
-    printf("left blink: %d\n", digital_data.left_blink);
-    printf("right_blink: %d\n", digital_data.right_blink);
-    printf("direction_switch: %d\n", digital_data.direction_switch);
-    printf("horn: %d\n", digital_data.horn);
-    printf("crzmodea: %d\n", digital_data.crz_mode_a);
-    printf("crz_set: %d\n", digital_data.crz_set);
-    printf("crz_reset: %d\n", digital_data.crz_reset);
-    printf("throttle: %d\n", throttle);
-    printf("hazards: %d\n", hazards);
-    printf("drive_mode: %d\n", drive_mode);
-    printf("number reads: %d\n", number_reads);
+    // FreeRTOS tasks run concurrently. loop() yields CPU.
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }
