@@ -10,7 +10,9 @@ void debugInit() {
     Serial.begin(115200);
 }
 
-void debugUpdate() {}
+void debugUpdate() {
+    // add periodic steering prints here
+}
 
 void debugError(const char* msg) {
     Serial.println(msg);
