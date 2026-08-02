@@ -14,7 +14,7 @@ inline bool getBlinkPhase() {
 
 // ------------- CLASS -------------
 
-// IDs / DLCs from embedded-pio/can_ids.h (SC2_CAN_*)
+// IDs / DLCs from embedded-pio/can_ids.h (CAN_*)
 class CanSteering : public ESP32CANManager {
    public:
     CanSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue,

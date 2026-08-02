@@ -62,9 +62,9 @@ static float socFromPackVoltage(float pack_voltage) {
 }
 
 static float decodePackAbsCurrentA(uint16_t raw_current) {
-    uint16_t magnitude = (raw_current >= SC2_CAN_BPS_PACK_CURRENT_ZERO)
-                             ? (uint16_t)(raw_current - SC2_CAN_BPS_PACK_CURRENT_ZERO)
-                             : (uint16_t)(SC2_CAN_BPS_PACK_CURRENT_ZERO - raw_current);
+    uint16_t magnitude = (raw_current >= CAN_BPS_PACK_CURRENT_ZERO)
+                             ? (uint16_t)(raw_current - CAN_BPS_PACK_CURRENT_ZERO)
+                             : (uint16_t)(CAN_BPS_PACK_CURRENT_ZERO - raw_current);
     return (float)magnitude * PACK_CURRENT_SCALE_A;
 }
 
@@ -96,16 +96,16 @@ void CanSteering::readHandler(CanFrame msg) {
     bool update_505 = false;
 
     switch (can_id) {
-        case SC2_CAN_BPS_TEMPERATURE_ID:
-            if (msg.data_length_code >= SC2_CAN_BPS_TEMPERATURE_DLC) {
+        case CAN_BPS_TEMPERATURE:
+            if (msg.data_length_code >= CAN_BPS_TEMPERATURE_DLC) {
                 local_low_temp_c = (float)readBeUint16(&msg.data[0]);
                 local_high_temp_c = (float)readBeUint16(&msg.data[2]);
                 update_temps = true;
             }
             break;
 
-        case SC2_CAN_BPS_ELECTRICAL_ID:
-            if (msg.data_length_code >= SC2_CAN_BPS_ELECTRICAL_DLC) {
+        case CAN_BPS_ELECTRICAL:
+            if (msg.data_length_code >= CAN_BPS_ELECTRICAL_DLC) {
                 local_high_cell_v = (float)readBeUint16(&msg.data[0]) * CELL_VOLTAGE_SCALE_V;
                 local_low_cell_v = (float)readBeUint16(&msg.data[2]) * CELL_VOLTAGE_SCALE_V;
                 local_pack_abs_current_a = decodePackAbsCurrentA(readBeUint16(&msg.data[4]));
@@ -115,24 +115,24 @@ void CanSteering::readHandler(CanFrame msg) {
             }
             break;
 
-        case SC2_CAN_PDC_ACC_OUT_ID:
+        case CAN_PDC_ACC_OUT:
             if (msg.data_length_code >= sizeof(float)) {
                 memcpy(&local_stuff, msg.data, sizeof(float));
                 update_stuff = true;
             }
             break;
 
-        case SC2_CAN_PDC_REGEN_ID:
+        case CAN_PDC_REGEN:
             break;
 
-        case SC2_CAN_PDC_MPH_ID:
+        case CAN_PDC_MPH:
             if (msg.data_length_code >= sizeof(float)) {
                 memcpy(&local_speedsig, msg.data, sizeof(float));
                 update_speedsig = true;
             }
             break;
 
-        case SC2_CAN_STEERING_THROTTLE_ID:
+        case CAN_STEERING_THROTTLE:
             if (msg.data_length_code >= sizeof(uint16_t)) {
                 uint16_t throttle_raw = 0;
                 memcpy(&throttle_raw, msg.data, sizeof(uint16_t));
@@ -153,9 +153,9 @@ void CanSteering::readHandler(CanFrame msg) {
             }
             break;
 
-        case SC2_CAN_PT_FAULT_STATUS_ID:
-            if (msg.data_length_code >= SC2_CAN_PT_FAULT_STATUS_DLC) {
-                local_505 = (msg.data[0] & SC2_CAN_PT_FAULT_MASK) != 0;
+        case CAN_PT_FAULT_STATUS:
+            if (msg.data_length_code >= CAN_PT_FAULT_STATUS_DLC) {
+                local_505 = (msg.data[0] & CAN_PT_FAULT_MASK) != 0;
                 update_505 = true;
             }
             break;
@@ -223,15 +223,15 @@ void CanSteering::sendSteeringData() {
     digital_payload |= (local_digital_data.direction_switch ? 1U : 0U) << 3;
     digital_payload |= (local_digital_data.horn ? 1U : 0U) << 4;
 
-    bool tx_ok = this->sendMessage(SC2_CAN_STEERING_DIGITAL_ID, (void*)&digital_payload,
+    bool tx_ok = this->sendMessage(CAN_STEERING_DIGITAL, (void*)&digital_payload,
                                   sizeof(digital_payload), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(SC2_CAN_STEERING_REGEN_ID, (void*)&regen_brake_normalized,
+    tx_ok = this->sendMessage(CAN_STEERING_REGEN, (void*)&regen_brake_normalized,
                               sizeof(float), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(SC2_CAN_STEERING_THROTTLE_ID, (void*)&throttle_raw,
+    tx_ok = this->sendMessage(CAN_STEERING_THROTTLE, (void*)&throttle_raw,
                               sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
 #if SC2_DEBUG
     if (!tx_ok) {
@@ -242,18 +242,18 @@ void CanSteering::sendSteeringData() {
 #endif
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(SC2_CAN_STEERING_DRIVE_MODE_ID, (void*)&local_drive_mode,
+    tx_ok = this->sendMessage(CAN_STEERING_DRIVE_MODE, (void*)&local_drive_mode,
                               sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
     bool hazard_blink = local_hazards && blink_phase;
     tx_ok =
-        this->sendMessage(SC2_CAN_STEERING_HAZARD_ID, (void*)&hazard_blink, sizeof(bool),
+        this->sendMessage(CAN_STEERING_HAZARD, (void*)&hazard_blink, sizeof(bool),
                           CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
     uint8_t bps_light = local_battery_fault_active ? 1U : 0U;
-    tx_ok = this->sendMessage(SC2_CAN_BPS_LIGHT_ID, (void*)&bps_light, sizeof(bps_light),
+    tx_ok = this->sendMessage(CAN_BPS_LIGHT, (void*)&bps_light, sizeof(bps_light),
                               CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 }
