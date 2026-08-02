@@ -148,7 +148,7 @@ void CanSteering::readHandler(CanFrame msg) {
                 }
 
 #if SC2_DEBUG
-                Serial.printf("CAN 0x302: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
+                Serial.printf("throttle RX: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
 #endif
             }
             break;
@@ -235,9 +235,9 @@ void CanSteering::sendSteeringData() {
                               sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
 #if SC2_DEBUG
     if (!tx_ok) {
-        Serial.printf("Failed to send CAN 0x302: raw=%u\n", throttle_raw);
+        Serial.printf("Failed to send throttle: raw=%u\n", throttle_raw);
     } else {
-        Serial.printf("Sent CAN 0x302: raw=%u\n", throttle_raw);
+        Serial.printf("Sent throttle: raw=%u\n", throttle_raw);
     }
 #endif
     send_success &= tx_ok;
