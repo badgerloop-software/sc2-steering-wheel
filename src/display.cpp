@@ -1,6 +1,8 @@
 #include "display.h"
-#include "IOManagement.h"
-#include "canSteering.h"
+
+#include "board_config.h"
+#include "can_steering.h"
+#include "io_management.h"
 #include "odometer.h"
 #include <Arduino.h>
 #include <cstring>
@@ -24,14 +26,14 @@ void initDisplay(bool SD_enable) {
   tft.fillScreen(TFT_BLACK);
 
   if (!SD_enable) {
-#ifdef DEBUG_PRINTS
+#if SC2_DEBUG
     Serial.println("Display initialized without SD card.");
 #endif
     return;
   }
 
   if (!SD.begin(5, tft.getSPIinstance())) {
-#ifdef DEBUG_PRINTS
+#if SC2_DEBUG
     Serial.println("Card Mount Failed");
 #endif
     return;
@@ -39,13 +41,13 @@ void initDisplay(bool SD_enable) {
 
   uint8_t cardType = SD.cardType();
   if (cardType == CARD_NONE) {
-#ifdef DEBUG_PRINTS
+#if SC2_DEBUG
     Serial.println("No SD card attached");
 #endif
     return;
   }
 
-#ifdef DEBUG_PRINTS
+#if SC2_DEBUG
   Serial.print("SD Card Type: ");
   if (cardType == CARD_MMC) {
     Serial.println("MMC");

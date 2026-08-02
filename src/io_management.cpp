@@ -1,4 +1,6 @@
-#include "IOManagement.h"
+#include "io_management.h"
+
+// ------------- GLOBALS -------------
 
 volatile Digital_Data digital_data;
 volatile float regen_brake;
@@ -9,6 +11,8 @@ volatile bool hazards = 0;
 volatile uint8_t drive_mode = 0;
 volatile uint16_t lap_count = 0;
 portMUX_TYPE stateMux = portMUX_INITIALIZER_UNLOCKED;
+
+// ------------- LOCAL -------------
 
 static bool headlight_state = false;
 static bool last_headlight_input = false;
@@ -27,9 +31,9 @@ static bool last_regen_button_input = false;
 static bool last_crz_set_input = false;
 static bool last_crz_reset_input = false;
 
-static const uint16_t MAX_ANALOG_VALUE = THROTTLE_SENT_MAX;
+// ------------- LOCAL FUNCTIONS -------------
 
-static bool toggleOnPress(bool input, bool &state, bool &last_input) {
+static bool toggleOnPress(bool input, bool& state, bool& last_input) {
     if (input && !last_input) {
         state = !state;
     }
@@ -38,8 +42,9 @@ static bool toggleOnPress(bool input, bool &state, bool &last_input) {
     return state;
 }
 
+// ------------- PUBLIC FUNCTIONS -------------
+
 void sampleIO() {
-    // 1. Read all pins into local variables first (outside critical section to minimize interrupt latency)
     bool local_regen_button = digitalRead(REGEN_BRAKE_PIN);
     uint16_t local_throttle_raw = analogRead(THROTTLE_PIN);
     bool local_headlight = digitalRead(HEADLIGHT_PIN);
@@ -52,7 +57,6 @@ void sampleIO() {
     bool local_crz_set = digitalRead(CRZ_SET_PIN);
     bool local_crz_reset = digitalRead(CRZ_RESET_PIN);
 
-    // 2. Perform calibration calculations
     float pedal_calibrated = calibratePedal(local_throttle_raw);
 
     float local_regen_brake = 0.0f;
@@ -60,27 +64,16 @@ void sampleIO() {
     float local_throttle = 0.0f;
 
     if (local_regen_button) {
-        // While the regen button is pressed, the acceleration pedal acts as a regen brake pedal.
         local_regen_brake = pedal_calibrated;
-        local_regen_brake_percent = (uint8_t)((pedal_calibrated * 100.0f) / (float)THROTTLE_SENT_MAX + 0.5f);
+        local_regen_brake_percent =
+            (uint8_t)((pedal_calibrated * 100.0f) / (float)THROTTLE_SENT_MAX + 0.5f);
         local_throttle = 0.0f;
     } else {
-        // When released, regen brake is set back to 0.
         local_regen_brake = 0.0f;
         local_regen_brake_percent = 0;
         local_throttle = pedal_calibrated;
     }
 
-    // Print local throttle reading (raw ADC and voltage)
-#ifdef DEBUG_PRINTS
-    {
-        uint16_t throttle_raw_print = (uint16_t)local_throttle;
-        float throttle_voltage = 3.3f * (float)throttle_raw_print / 4095.0f;
-        Serial.printf("Local throttle: raw=%u voltage=%.3fV\n", throttle_raw_print, throttle_voltage);
-    }
-#endif
-
-    // 3. Write updates to shared volatile state under the spinlock critical section
     portENTER_CRITICAL(&stateMux);
 
     last_regen_button_input = local_regen_button;
@@ -90,13 +83,12 @@ void sampleIO() {
 
     digital_data.headlight = toggleOnPress(local_headlight, headlight_state, last_headlight_input);
     if (!direction_input_armed) {
-        // Ignore the first edge after boot so switch bounce cannot flip us to reverse.
         last_direction_switch_input = local_direction_switch;
         digital_data.direction_switch = direction_switch_state;
         direction_input_armed = true;
     } else {
-        digital_data.direction_switch = toggleOnPress(
-            local_direction_switch, direction_switch_state, last_direction_switch_input);
+        digital_data.direction_switch = toggleOnPress(local_direction_switch, direction_switch_state,
+                                                      last_direction_switch_input);
     }
     digital_data.horn = local_horn;
 
@@ -110,15 +102,16 @@ void sampleIO() {
     }
 
     if (!hazards) {
-        digital_data.left_blink = toggleOnPress(local_left_blink, left_blink_state, last_left_blink_input);
-        digital_data.right_blink = toggleOnPress(local_right_blink, right_blink_state, last_right_blink_input);
+        digital_data.left_blink =
+            toggleOnPress(local_left_blink, left_blink_state, last_left_blink_input);
+        digital_data.right_blink =
+            toggleOnPress(local_right_blink, right_blink_state, last_right_blink_input);
     } else {
         last_left_blink_input = local_left_blink;
         last_right_blink_input = local_right_blink;
     }
     drive_mode = toggleOnPress(local_drive_mode, drive_mode_state, last_drive_mode_input);
 
-    // Cruise set/reset unused — edge-detect for lap counter instead
     if (local_crz_set && !last_crz_set_input) {
         if (lap_count < 999) {
             lap_count++;
@@ -139,7 +132,6 @@ void sampleIO() {
 }
 
 void initIO() {
-    // Initialize digital pins
     pinMode(REGEN_BRAKE_PIN, INPUT);
     pinMode(HEADLIGHT_PIN, INPUT);
     pinMode(LEFT_BLINK_PIN, INPUT);
@@ -161,13 +153,11 @@ void initIO() {
     last_crz_set_input = digitalRead(CRZ_SET_PIN);
     last_crz_reset_input = digitalRead(CRZ_RESET_PIN);
 
-    // Default to forward on boot; first sampleIO() only seeds edge detection.
     direction_switch_state = true;
     direction_input_armed = false;
     portENTER_CRITICAL(&stateMux);
     digital_data.direction_switch = true;
     portEXIT_CRITICAL(&stateMux);
 
-    // Seed inputs once at startup so values are valid before first task execution.
     sampleIO();
 }

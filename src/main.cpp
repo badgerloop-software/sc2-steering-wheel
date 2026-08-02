@@ -1,120 +1,81 @@
 #include <Arduino.h>
-#include "canSteering.h"
-#include "IOManagement.h"
+
+#include "board_config.h"
+#include "can_steering.h"
+#include "debug.h"
 #include "display.h"
+#include "io_management.h"
 #include "odometer.h"
 
-#define CAN_TX		21
-#define CAN_RX		22
+// ------------- LOCAL -------------
 
-CANSteering* canSteering = nullptr;
+static CanSteering* can_steering = nullptr;
 
-extern float speedsig;
-
-// Task implementations
-void ioTask(void* pvParameters) {
-    TickType_t lastWakeTime = xTaskGetTickCount();
-    const TickType_t period = pdMS_TO_TICKS(10); // 10ms (100 Hz)
+static void ioTask(void* pvParameters) {
+    TickType_t last_wake_time = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(IO_TASK_PERIOD_MS);
     while (true) {
         sampleIO();
-        vTaskDelayUntil(&lastWakeTime, period);
+        vTaskDelayUntil(&last_wake_time, period);
     }
 }
 
-void canRxTask(void* pvParameters) {
+static void canRxTask(void* pvParameters) {
     while (true) {
-        if (canSteering != nullptr) {
-            // Drain RX aggressively so high-rate BMS frames are not dropped
-            canSteering->runQueue(20);
+        if (can_steering != nullptr) {
+            can_steering->runQueue(20);
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(CAN_RX_TASK_PERIOD_MS));
     }
 }
 
-void canTxTask(void* pvParameters) {
-    TickType_t lastWakeTime = xTaskGetTickCount();
-    const TickType_t period = pdMS_TO_TICKS(20); // 20ms (50 Hz)
+static void canTxTask(void* pvParameters) {
+    TickType_t last_wake_time = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(CAN_TX_TASK_PERIOD_MS);
     while (true) {
-        if (canSteering != nullptr) {
-            canSteering->sendSteeringData();
+        if (can_steering != nullptr) {
+            can_steering->sendSteeringData();
         }
-        vTaskDelayUntil(&lastWakeTime, period);
+        vTaskDelayUntil(&last_wake_time, period);
     }
 }
 
-void displayTask(void* pvParameters) {
-    uint32_t lastLoopMs = millis();
+static void displayTask(void* pvParameters) {
+    uint32_t last_loop_ms = millis();
     while (true) {
-        uint32_t nowLoop = millis();
-        uint32_t deltaMs = nowLoop - lastLoopMs;
-        lastLoopMs = nowLoop;
+        uint32_t now_loop = millis();
+        uint32_t delta_ms = now_loop - last_loop_ms;
+        last_loop_ms = now_loop;
 
-        // Copy speedsig under critical section
         portENTER_CRITICAL(&stateMux);
         float speed = speedsig;
         portEXIT_CRITICAL(&stateMux);
 
-        updateOdometer(speed, deltaMs);
+        updateOdometer(speed, delta_ms);
         renderMinimalDisplay(speed);
 
-        vTaskDelay(pdMS_TO_TICKS(50)); // 50ms (20 Hz)
+        vTaskDelay(pdMS_TO_TICKS(DISPLAY_TASK_PERIOD_MS));
     }
 }
 
+// ------------- PUBLIC FUNCTIONS -------------
+
 void setup() {
-    Serial.begin(115200);
+    debugInit();
     initIO();
     initDisplay(false);
     initOdometer();
 
-    static CANSteering canSteeringInstance(CAN_TX, CAN_RX, 32, 64, 250);
-    canSteering = &canSteeringInstance;
+    static CanSteering can_steering_instance(CAN_TX_PIN, CAN_RX_PIN, CAN_TX_QUEUE_SIZE,
+                                             CAN_RX_QUEUE_SIZE, CAN_FREQUENCY_KHZ);
+    can_steering = &can_steering_instance;
 
-    // Create and schedule tasks
-    // Pinned to Core 0 (timing-critical control tasks)
-    xTaskCreatePinnedToCore(
-        ioTask,
-        "ioTask",
-        4096,
-        nullptr,
-        3,          // Priority
-        nullptr,
-        0           // Core ID
-    );
-
-    xTaskCreatePinnedToCore(
-        canRxTask,
-        "canRxTask",
-        4096,
-        nullptr,
-        4,          // Higher Priority
-        nullptr,
-        0           // Core ID
-    );
-
-    xTaskCreatePinnedToCore(
-        canTxTask,
-        "canTxTask",
-        4096,
-        nullptr,
-        4,          // Higher Priority
-        nullptr,
-        0           // Core ID
-    );
-
-    // Pinned to Core 1 (slower, non-critical drawing tasks)
-    xTaskCreatePinnedToCore(
-        displayTask,
-        "displayTask",
-        8192,       // Larger stack size for TFT drawing
-        nullptr,
-        1,          // Lower Priority
-        nullptr,
-        1           // Core ID
-    );
+    xTaskCreatePinnedToCore(ioTask, "ioTask", 4096, nullptr, 3, nullptr, 0);
+    xTaskCreatePinnedToCore(canRxTask, "canRxTask", 4096, nullptr, 4, nullptr, 0);
+    xTaskCreatePinnedToCore(canTxTask, "canTxTask", 4096, nullptr, 4, nullptr, 0);
+    xTaskCreatePinnedToCore(displayTask, "displayTask", 8192, nullptr, 1, nullptr, 1);
 }
 
 void loop() {
-    // FreeRTOS tasks run concurrently. loop() yields CPU.
     vTaskDelay(pdMS_TO_TICKS(1000));
 }

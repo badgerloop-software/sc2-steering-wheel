@@ -1,11 +1,14 @@
-#include <Arduino.h>
-#include "canSteering.h"
+#include "can_steering.h"
 
-static const uint32_t CAN_SEND_TIMEOUT_MS = 10;
+#include <Arduino.h>
+
+#include "can_ids.h"
+#include "debug.h"
+
+// ------------- GLOBALS -------------
 
 float stuff = 0.0;
 float speedsig = 0.0;
-
 bool send_success;
 volatile uint32_t can_messages_read = 0;
 volatile uint16_t can_last_id = 0;
@@ -19,31 +22,25 @@ volatile float battery_low_cell_v = 0.0f;
 volatile float battery_pack_abs_current_a = 0.0f;
 volatile float battery_est_pack_v = 0.0f;
 
+// ------------- LOCAL -------------
+
 static volatile bool bps_src_505 = false;
-// static volatile bool bps_src_506 = false;
-// static volatile bool bps_src_507 = false;
-
-static inline uint16_t readBeUint16(const uint8_t *data) {
-    return (uint16_t)(((uint16_t)data[0] << 8) | data[1]);
-}
-
-// Matches sc2-powertrain BPS_PACK_CURRENT_* : midscale 0x8000 = 0 A, 0.1 A/bit
-static const uint16_t PACK_CURRENT_ZERO_RAW = 0x8000U;
-static const float PACK_CURRENT_SCALE_A = 0.1f;
-static const float CELL_VOLTAGE_SCALE_V = 0.0001f;
 
 // OCV curve: cell V at SOC 0,5,10,...,100 (matches streamlit app)
 static const float CELL_VOLTAGES[] = {
-    2.500f, 2.871f, 3.043f, 3.160f, 3.269f,
-    3.371f, 3.429f, 3.476f, 3.521f, 3.572f,
-    3.629f, 3.680f, 3.726f, 3.765f, 3.804f,
-    3.865f, 3.923f, 3.955f, 3.975f, 3.998f, 4.111f
+    2.500f, 2.871f, 3.043f, 3.160f, 3.269f, 3.371f, 3.429f, 3.476f, 3.521f, 3.572f,
+    3.629f, 3.680f, 3.726f, 3.765f, 3.804f, 3.865f, 3.923f, 3.955f, 3.975f, 3.998f, 4.111f,
 };
 static const int CELL_VOLTAGE_COUNT = sizeof(CELL_VOLTAGES) / sizeof(CELL_VOLTAGES[0]);
-static const float SERIES_COUNT = 29.0f;
+
+// ------------- LOCAL FUNCTIONS -------------
+
+static inline uint16_t readBeUint16(const uint8_t* data) {
+    return (uint16_t)(((uint16_t)data[0] << 8) | data[1]);
+}
 
 static float socFromPackVoltage(float pack_voltage) {
-    float cell_voltage = pack_voltage / SERIES_COUNT;
+    float cell_voltage = pack_voltage / PACK_SERIES_CELLS;
 
     if (cell_voltage <= CELL_VOLTAGES[0]) {
         return 0.0f;
@@ -65,15 +62,19 @@ static float socFromPackVoltage(float pack_voltage) {
 }
 
 static float decodePackAbsCurrentA(uint16_t raw_current) {
-    uint16_t magnitude = (raw_current >= PACK_CURRENT_ZERO_RAW)
-        ? (uint16_t)(raw_current - PACK_CURRENT_ZERO_RAW)
-        : (uint16_t)(PACK_CURRENT_ZERO_RAW - raw_current);
+    uint16_t magnitude = (raw_current >= SC2_CAN_BPS_PACK_CURRENT_ZERO)
+                             ? (uint16_t)(raw_current - SC2_CAN_BPS_PACK_CURRENT_ZERO)
+                             : (uint16_t)(SC2_CAN_BPS_PACK_CURRENT_ZERO - raw_current);
     return (float)magnitude * PACK_CURRENT_SCALE_A;
 }
 
-CANSteering::CANSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue, uint16_t frequency) : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {};
-void CANSteering::readHandler(CanFrame msg) {
-    // 1. Prepare local variables to update under spinlock
+// ------------- PUBLIC FUNCTIONS -------------
+
+CanSteering::CanSteering(int8_t tx, int8_t rx, uint16_t tx_queue, uint16_t rx_queue,
+                         uint16_t frequency)
+    : ESP32CANManager(tx, rx, tx_queue, rx_queue, frequency) {}
+
+void CanSteering::readHandler(CanFrame msg) {
     const uint32_t can_id = msg.identifier & 0x7FFu;
     uint16_t local_last_id = (uint16_t)can_id;
     uint8_t local_last_dlc = msg.data_length_code;
@@ -91,106 +92,78 @@ void CANSteering::readHandler(CanFrame msg) {
     bool update_stuff = false;
     float local_speedsig = 0.0f;
     bool update_speedsig = false;
-
     bool local_505 = false;
     bool update_505 = false;
-    // bool local_506 = false;
-    // bool update_506 = false;
-    // bool local_507 = false;
-    // bool update_507 = false;
 
-    switch (can_id){
-        case 0x108:{
-            // Low/High Temperature: big-endian uint16, 1 C (matches powertrain)
-            if (msg.data_length_code >= 4) {
+    switch (can_id) {
+        case SC2_CAN_BPS_TEMPERATURE_ID:
+            if (msg.data_length_code >= SC2_CAN_BPS_TEMPERATURE_DLC) {
                 local_low_temp_c = (float)readBeUint16(&msg.data[0]);
                 local_high_temp_c = (float)readBeUint16(&msg.data[2]);
                 update_temps = true;
             }
             break;
-        }
-        case 0x109:{
-            // High/Low cell V (0.0001 V), Pack Abs Current (0x8000 midscale, 0.1 A)
-            if (msg.data_length_code >= 6) {
+
+        case SC2_CAN_BPS_ELECTRICAL_ID:
+            if (msg.data_length_code >= SC2_CAN_BPS_ELECTRICAL_DLC) {
                 local_high_cell_v = (float)readBeUint16(&msg.data[0]) * CELL_VOLTAGE_SCALE_V;
                 local_low_cell_v = (float)readBeUint16(&msg.data[2]) * CELL_VOLTAGE_SCALE_V;
                 local_pack_abs_current_a = decodePackAbsCurrentA(readBeUint16(&msg.data[4]));
-                local_est_pack_v = ((local_high_cell_v + local_low_cell_v) / 2.0f) * SERIES_COUNT;
+                local_est_pack_v = ((local_high_cell_v + local_low_cell_v) / 2.0f) * PACK_SERIES_CELLS;
                 local_battery_soc = socFromPackVoltage(local_est_pack_v);
                 update_cell_pack = true;
             }
             break;
-        }
-        case 0x200:{
+
+        case SC2_CAN_PDC_ACC_OUT_ID:
             if (msg.data_length_code >= sizeof(float)) {
                 memcpy(&local_stuff, msg.data, sizeof(float));
                 update_stuff = true;
             }
             break;
-        }
 
-        case 0x201:{
-            // 0x201 is regen_brake from PCD — not used on display currently
+        case SC2_CAN_PDC_REGEN_ID:
             break;
-        }
-        case 0x208:{
-            // mph from PCD (matches canPDC.cpp sendMessage(0x208, &mph, ...))
+
+        case SC2_CAN_PDC_MPH_ID:
             if (msg.data_length_code >= sizeof(float)) {
                 memcpy(&local_speedsig, msg.data, sizeof(float));
                 update_speedsig = true;
             }
             break;
-        }
-        case 0x302: {
+
+        case SC2_CAN_STEERING_THROTTLE_ID:
             if (msg.data_length_code >= sizeof(uint16_t)) {
                 uint16_t throttle_raw = 0;
                 memcpy(&throttle_raw, msg.data, sizeof(uint16_t));
 
-                const uint16_t ADC_MIN = 869;   // ~0.7V at rest
-                const uint16_t ADC_MAX = 3228;  // ~2.6V at full press
-
                 float acc_in = 0.0f;
-                if (throttle_raw <= ADC_MIN) {
+                if (throttle_raw <= THROTTLE_CAN_ADC_MIN) {
                     acc_in = 0.0f;
-                } else if (throttle_raw >= ADC_MAX) {
+                } else if (throttle_raw >= THROTTLE_CAN_ADC_MAX) {
                     acc_in = 1.0f;
                 } else {
-                    acc_in = (float)(throttle_raw - ADC_MIN) / (float)(ADC_MAX - ADC_MIN);
+                    acc_in = (float)(throttle_raw - THROTTLE_CAN_ADC_MIN) /
+                             (float)(THROTTLE_CAN_ADC_MAX - THROTTLE_CAN_ADC_MIN);
                 }
 
-#ifdef DEBUG_PRINTS
+#if SC2_DEBUG
                 Serial.printf("CAN 0x302: raw=%u normalized=%.3f\n", throttle_raw, acc_in);
 #endif
             }
             break;
-        }
-        case 0x505: {
-            // Powertrain estop: 0 = fault, nonzero = OK
-            if (msg.data_length_code > 0) {
-                local_505 = msg.data[0] == 0x01;
+
+        case SC2_CAN_PT_FAULT_STATUS_ID:
+            if (msg.data_length_code >= SC2_CAN_PT_FAULT_STATUS_DLC) {
+                local_505 = (msg.data[0] & SC2_CAN_PT_FAULT_MASK) != 0;
                 update_505 = true;
             }
             break;
-        }
-        // case 0x506: {
-        //     if (msg.data_length_code > 0) {
-        //         local_506 = msg.data[0] == 0;
-        //         update_506 = true;
-        //     }
-        //     break;
-        // }
-        // case 0x507: {
-        //     if (msg.data_length_code > 0) {
-        //         local_507 = msg.data[0] == 0;
-        //         update_507 = true;
-        //     }
-        //     break;
-        // }
+
         default:
             break;
     }
 
-    // 2. Commit updates under the spinlock critical section
     portENTER_CRITICAL(&stateMux);
     can_messages_read++;
     can_last_id = local_last_id;
@@ -209,13 +182,7 @@ void CANSteering::readHandler(CanFrame msg) {
     if (update_505) {
         bps_src_505 = local_505;
     }
-    // if (update_506) {
-    //     bps_src_506 = local_506;
-    // }
-    // if (update_507) {
-    //     bps_src_507 = local_507;
-    // }
-    battery_fault_active = bps_src_505 /* || bps_src_506 || bps_src_507 */;
+    battery_fault_active = bps_src_505;
     if (update_stuff) {
         stuff = local_stuff;
     }
@@ -225,11 +192,9 @@ void CANSteering::readHandler(CanFrame msg) {
     portEXIT_CRITICAL(&stateMux);
 }
 
-void CANSteering::sendSteeringData() {
-    // Drain pending RX before TX so BMS frames are less likely to overflow the queue
+void CanSteering::sendSteeringData() {
     this->runQueue(2);
 
-    // 1. Copy shared volatile variables under critical section
     portENTER_CRITICAL(&stateMux);
     uint8_t local_regen_brake_percent = regen_brake_percent;
     float local_throttle = throttle;
@@ -241,13 +206,15 @@ void CANSteering::sendSteeringData() {
 
     send_success = true;
 
-    // Compute blink phase from steering wheel clock — all boards will be in sync
     bool blink_phase = getBlinkPhase();
     bool left_lamp = (local_digital_data.left_blink || local_hazards) && blink_phase;
     bool right_lamp = (local_digital_data.right_blink || local_hazards) && blink_phase;
     float regen_brake_normalized = (float)local_regen_brake_percent / 100.0f;
-    uint16_t throttle_raw = (local_throttle < 0.0f) ? 0U
-        : (local_throttle > (float)THROTTLE_SENT_MAX ? THROTTLE_SENT_MAX : (uint16_t)local_throttle);
+    uint16_t throttle_raw =
+        (local_throttle < 0.0f)
+            ? 0U
+            : (local_throttle > (float)THROTTLE_SENT_MAX ? THROTTLE_SENT_MAX
+                                                         : (uint16_t)local_throttle);
     uint8_t digital_payload = 0;
 
     digital_payload |= (local_digital_data.headlight ? 1U : 0U) << 0;
@@ -256,14 +223,17 @@ void CANSteering::sendSteeringData() {
     digital_payload |= (local_digital_data.direction_switch ? 1U : 0U) << 3;
     digital_payload |= (local_digital_data.horn ? 1U : 0U) << 4;
 
-    bool tx_ok = this->sendMessage(0x300, (void*)&digital_payload, sizeof(digital_payload), CAN_SEND_TIMEOUT_MS);
+    bool tx_ok = this->sendMessage(SC2_CAN_STEERING_DIGITAL_ID, (void*)&digital_payload,
+                                  sizeof(digital_payload), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(0x301, (void*)&regen_brake_normalized, sizeof(float), CAN_SEND_TIMEOUT_MS);
+    tx_ok = this->sendMessage(SC2_CAN_STEERING_REGEN_ID, (void*)&regen_brake_normalized,
+                              sizeof(float), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(0x302, (void*)&throttle_raw, sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
-#ifdef DEBUG_PRINTS
+    tx_ok = this->sendMessage(SC2_CAN_STEERING_THROTTLE_ID, (void*)&throttle_raw,
+                              sizeof(throttle_raw), CAN_SEND_TIMEOUT_MS);
+#if SC2_DEBUG
     if (!tx_ok) {
         Serial.printf("Failed to send CAN 0x302: raw=%u\n", throttle_raw);
     } else {
@@ -272,15 +242,18 @@ void CANSteering::sendSteeringData() {
 #endif
     send_success &= tx_ok;
 
-    tx_ok = this->sendMessage(0x303, (void*)&local_drive_mode, sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);
+    tx_ok = this->sendMessage(SC2_CAN_STEERING_DRIVE_MODE_ID, (void*)&local_drive_mode,
+                              sizeof(uint8_t), CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
     bool hazard_blink = local_hazards && blink_phase;
-    tx_ok = this->sendMessage(0x304, (void*)&hazard_blink, sizeof(bool), CAN_SEND_TIMEOUT_MS);
+    tx_ok =
+        this->sendMessage(SC2_CAN_STEERING_HAZARD_ID, (void*)&hazard_blink, sizeof(bool),
+                          CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 
-    // Lightings BPS fault: CAN 0x103 bit 0
     uint8_t bps_light = local_battery_fault_active ? 1U : 0U;
-    tx_ok = this->sendMessage(0x103, (void*)&bps_light, sizeof(bps_light), CAN_SEND_TIMEOUT_MS);
+    tx_ok = this->sendMessage(SC2_CAN_BPS_LIGHT_ID, (void*)&bps_light, sizeof(bps_light),
+                              CAN_SEND_TIMEOUT_MS);
     send_success &= tx_ok;
 }
