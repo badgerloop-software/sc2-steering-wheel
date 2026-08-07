@@ -1,3 +1,6 @@
+// sc2-steering-wheel main: ESP32 HMI with FreeRTOS tasks
+// Core 0: IO sample, CAN RX, CAN TX - Core 1: display and odometer
+// loop() only yields - Real work is in the tasks below
 #include <Arduino.h>
 #include "canSteering.h"
 #include "IOManagement.h"
@@ -9,9 +12,7 @@
 
 CANSteering* canSteering = nullptr;
 
-extern float speedsig;
-
-// Task implementations
+// Sample pedals and buttons at 100 Hz into shared state (stateMux)
 void ioTask(void* pvParameters) {
     TickType_t lastWakeTime = xTaskGetTickCount();
     const TickType_t period = pdMS_TO_TICKS(10); // 10ms (100 Hz)
@@ -21,16 +22,18 @@ void ioTask(void* pvParameters) {
     }
 }
 
+// Drain BMS and telem RX
 void canRxTask(void* pvParameters) {
     while (true) {
         if (canSteering != nullptr) {
-            // Drain RX aggressively so high-rate BMS frames are not dropped
+            // Read RX often so high-rate BMS frames are not dropped
             canSteering->runQueue(20);
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
+// Send driver inputs to PDC and lighting at 50 Hz
 void canTxTask(void* pvParameters) {
     TickType_t lastWakeTime = xTaskGetTickCount();
     const TickType_t period = pdMS_TO_TICKS(20); // 20ms (50 Hz)
@@ -42,6 +45,7 @@ void canTxTask(void* pvParameters) {
     }
 }
 
+// Update odometer from mph, then redraw the TFT at 20 Hz
 void displayTask(void* pvParameters) {
     uint32_t lastLoopMs = millis();
     while (true) {
@@ -49,9 +53,8 @@ void displayTask(void* pvParameters) {
         uint32_t deltaMs = nowLoop - lastLoopMs;
         lastLoopMs = nowLoop;
 
-        // Copy speedsig under critical section
         portENTER_CRITICAL(&stateMux);
-        float speed = speedsig;
+        float speed = speed_mph;
         portEXIT_CRITICAL(&stateMux);
 
         updateOdometer(speed, deltaMs);
@@ -64,57 +67,19 @@ void displayTask(void* pvParameters) {
 void setup() {
     Serial.begin(115200);
     initIO();
-    initDisplay(false);
+    initDisplay();
     initOdometer();
 
     static CANSteering canSteeringInstance(CAN_TX, CAN_RX, 32, 64, 250);
     canSteering = &canSteeringInstance;
 
-    // Create and schedule tasks
-    // Pinned to Core 0 (timing-critical control tasks)
-    xTaskCreatePinnedToCore(
-        ioTask,
-        "ioTask",
-        4096,
-        nullptr,
-        3,          // Priority
-        nullptr,
-        0           // Core ID
-    );
-
-    xTaskCreatePinnedToCore(
-        canRxTask,
-        "canRxTask",
-        4096,
-        nullptr,
-        4,          // Higher Priority
-        nullptr,
-        0           // Core ID
-    );
-
-    xTaskCreatePinnedToCore(
-        canTxTask,
-        "canTxTask",
-        4096,
-        nullptr,
-        4,          // Higher Priority
-        nullptr,
-        0           // Core ID
-    );
-
-    // Pinned to Core 1 (slower, non-critical drawing tasks)
-    xTaskCreatePinnedToCore(
-        displayTask,
-        "displayTask",
-        8192,       // Larger stack size for TFT drawing
-        nullptr,
-        1,          // Lower Priority
-        nullptr,
-        1           // Core ID
-    );
+    // Core 0 runs control tasks/Core 1 runs the display
+    xTaskCreatePinnedToCore(ioTask, "ioTask", 4096, nullptr, 3, nullptr, 0);
+    xTaskCreatePinnedToCore(canRxTask, "canRxTask", 4096, nullptr, 4, nullptr, 0);
+    xTaskCreatePinnedToCore(canTxTask, "canTxTask", 4096, nullptr, 4, nullptr, 0);
+    xTaskCreatePinnedToCore(displayTask, "displayTask", 8192, nullptr, 1, nullptr, 1);
 }
 
 void loop() {
-    // FreeRTOS tasks run concurrently. loop() yields CPU.
     vTaskDelay(pdMS_TO_TICKS(1000));
 }
