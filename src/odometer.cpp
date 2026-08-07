@@ -1,13 +1,14 @@
+// odometer: accumulate distance from mph and store tenths of a mile in NVS
 #include "odometer.h"
 #include <Preferences.h>
 
 static Preferences prefs;
-static uint32_t odoTenths = 0;      // stored value: tenths of a mile
-static double   accumulator = 0.0;  // fractional distance not yet committed
+static uint32_t odoTenths = 0;      // tenths of a mile in flash
+static double   accumulator = 0.0;  // fractional tenths not yet written
 
 void initOdometer() {
-    prefs.begin("odo", false);                   // namespace "odo", read-write
-    odoTenths = prefs.getUInt("tenths", 0);      // default 0 on first boot
+    prefs.begin("odo", false);
+    odoTenths = prefs.getUInt("tenths", 0);
 }
 
 void updateOdometer(float speedMph, uint32_t deltaMs) {
@@ -15,13 +16,11 @@ void updateOdometer(float speedMph, uint32_t deltaMs) {
         return;
     }
 
-    // distance in miles = speed (mi/h) * time (ms) / 3,600,000 (ms/h)
+    // miles = mph * ms / 3,600,000
     double distanceMiles = (double)speedMph * (double)deltaMs / 3600000.0;
-
-    // convert to tenths-of-a-mile and add to accumulator
     accumulator += distanceMiles * 10.0;
 
-    // flush whole tenths from the accumulator into NVS
+    // Write NVS only when at least one full tenth is complete
     if (accumulator >= 1.0) {
         uint32_t wholeTenths = (uint32_t)accumulator;
         odoTenths += wholeTenths;
@@ -32,8 +31,4 @@ void updateOdometer(float speedMph, uint32_t deltaMs) {
 
 uint32_t getOdometerMiles() {
     return odoTenths / 10;
-}
-
-uint32_t getOdometerTenths() {
-    return odoTenths;
 }

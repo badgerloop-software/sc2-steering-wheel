@@ -3,8 +3,8 @@
 
 #include <Arduino.h>
 
-// Uncomment to enable Serial debug prints. Comment out for production
-// to save CPU cycles and reduce latency.
+// Uncomment to enable Serial debug prints
+// to save CPU cycles and reduce latency
 // #define DEBUG_PRINTS
 
 // Macros for pins
@@ -17,10 +17,8 @@
 #define THROTTLE_PIN 12
 #define HAZARDS_PIN 14
 #define DRIVE_MODE_PIN 4
-#define CRZ_SET_PIN 26    // crz_inc — lap increment (cruise unused)
-#define CRZ_RESET_PIN 27  // crz_dec — lap decrement (cruise unused)
-
-#define IO_UPDATE_PERIOD 100000 // us
+#define CRZ_SET_PIN 26    // lap increment (cruise unused)
+#define CRZ_RESET_PIN 27  // lap decrement (cruise unused)
 
 // Throttle pedal calibration (12-bit ADC counts)
 #define THROTTLE_ADC_MAX  4095U
@@ -51,20 +49,15 @@ struct Digital_Data {
 };
 
 extern volatile Digital_Data digital_data;
-extern volatile float regen_brake;
 extern volatile uint8_t regen_brake_percent;
 extern volatile float throttle;
 extern volatile bool hazards;
 extern volatile uint8_t drive_mode;
-extern volatile uint16_t number_reads;
 extern volatile uint16_t lap_count;
 
 extern portMUX_TYPE stateMux;
 
-// initialize digital and analog pins
 void initIO();
-
-// Function to sample inputs - to be called by our FreeRTOS task
 void sampleIO();
 
 #endif

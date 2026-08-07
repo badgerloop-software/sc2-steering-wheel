@@ -2,18 +2,16 @@
 #define DISPLAY_H
 
 #include <SPI.h>
-
-#include <FS.h>
-#include <SD.h>
-
 #include <TFT_eSPI.h>
 
-#define HEIGHT 320
+// Panel is 320 by 480
 #define WIDTH 480
 
+#ifndef TFT_CS
+#define TFT_CS 15
+#endif
 
-void initDisplay(bool SD_enable = true);
+void initDisplay();
 void renderMinimalDisplay(float speed);
-
 
 #endif
